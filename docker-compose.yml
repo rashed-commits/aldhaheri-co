@@ -1,7 +1,13 @@
+include:
+  - path: ./finance/docker-compose.yml
+  - path: ./market/docker-compose.yml
+  - path: ./realestate/docker-compose.yml
+  - path: ./trade/docker-compose.yml
+
 services:
   hub-frontend:
     build:
-      context: ./frontend
+      context: ./hub/frontend
       dockerfile: Dockerfile
     container_name: hub-frontend
     ports:
@@ -20,7 +26,7 @@ services:
 
   hub-backend:
     build:
-      context: ./backend
+      context: ./hub/backend
       dockerfile: Dockerfile
     container_name: hub-backend
     ports:

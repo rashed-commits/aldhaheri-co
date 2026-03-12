@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UAE Market Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+    <!-- Project Nav -->
+    <nav class="project-nav">
+        <a href="https://aldhaheri.co/dashboard" class="nav-home">aldhaheri.co</a>
+        <a href="https://finance.aldhaheri.co">Finance</a>
+        <a href="https://market.aldhaheri.co" class="active">Market</a>
+        <a href="https://realestate.aldhaheri.co">Real Estate</a>
+        <a href="https://trade.aldhaheri.co">Trade</a>
+    </nav>
+
+    <!-- Grain overlay -->
+    <div class="grain-overlay"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-inner">
+            <div class="header-left">
+                <div class="logo-group">
+                    <div class="logo-icon">
+                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="14" cy="14" r="3" fill="#D4A853"/>
+                            <circle cx="14" cy="14" r="7" stroke="#D4A853" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.7"/>
+                            <circle cx="14" cy="14" r="11" stroke="#D4A853" stroke-width="1" stroke-dasharray="4 4" opacity="0.4"/>
+                            <line x1="14" y1="1" x2="14" y2="5" stroke="#D4A853" stroke-width="1.5" opacity="0.5"/>
+                            <line x1="14" y1="23" x2="14" y2="27" stroke="#D4A853" stroke-width="1.5" opacity="0.5"/>
+                            <line x1="1" y1="14" x2="5" y2="14" stroke="#D4A853" stroke-width="1.5" opacity="0.5"/>
+                            <line x1="23" y1="14" x2="27" y2="14" stroke="#D4A853" stroke-width="1.5" opacity="0.5"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="logo-title">UAE Market Intel</div>
+                        <div class="logo-subtitle">Opportunity Intelligence Platform</div>
+                    </div>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="live-badge">
+                    <span class="live-dot"></span>
+                    Live
+                </div>
+                <div class="last-updated" id="lastUpdated">Loading...</div>
+                <button class="refresh-btn" id="refreshBtn">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M1 7C1 3.686 3.686 1 7 1c1.9 0 3.606.84 4.77 2.175M13 7c0 3.314-2.686 6-6 6-1.9 0-3.606-.84-4.77-2.175" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <path d="M11.5 1v2.5H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M2.5 10.5V13H5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Refresh
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Stats Row -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-eyebrow">Market Intelligence</div>
+            <h1 class="hero-title">UAE Opportunity Radar</h1>
+            <p class="hero-desc">Real-time signals from Reddit, X, LinkedIn, Arabic forums, and review platforms — surfacing unmet needs and emerging trends before they peak.</p>
+        </div>
+        <div class="stat-row">
+            <div class="stat-card">
+                <div class="stat-value" id="statTotal">0</div>
+                <div class="stat-label">Total Signals</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statHigh">0</div>
+                <div class="stat-label">High Priority</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statSectors">0</div>
+                <div class="stat-label">Sectors Covered</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statPlatforms">0</div>
+                <div class="stat-label">Platforms Tracked</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="main">
+
+        <!-- Filters -->
+        <div class="filters-bar">
+            <div class="filters-left">
+                <div class="search-wrap">
+                    <svg class="search-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.5"/>
+                        <line x1="9.5" y1="9.5" x2="13" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    <input type="text" class="search-input" id="searchInput" placeholder="Search signals, keywords, topics...">
+                </div>
+                <div class="filter-group" id="sectorFilters">
+                    <button class="filter-chip active" data-sector="all">All Sectors</button>
+                </div>
+            </div>
+            <div class="filters-right">
+                <div class="filter-group" id="typeFilters">
+                    <button class="filter-chip active" data-type="all">All Types</button>
+                    <button class="filter-chip" data-type="trending">Trending</button>
+                    <button class="filter-chip" data-type="pain_point">Pain Points</button>
+                    <button class="filter-chip" data-type="opportunity">Opportunities</button>
+                    <button class="filter-chip" data-type="mention">Mentions</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" data-tab="feed">Signal Feed</button>
+            <button class="tab" data-tab="sectors">By Sector</button>
+            <button class="tab" data-tab="platforms">By Platform</button>
+        </div>
+
+        <!-- Tab: Signal Feed -->
+        <div class="tab-content active" id="tab-feed">
+            <div class="feed-grid" id="feedGrid">
+                <div class="loading-msg">Loading signals...</div>
+            </div>
+        </div>
+
+        <!-- Tab: By Sector -->
+        <div class="tab-content" id="tab-sectors">
+            <div class="sectors-grid" id="sectorsGrid"></div>
+        </div>
+
+        <!-- Tab: By Platform -->
+        <div class="tab-content" id="tab-platforms">
+            <div class="platforms-grid" id="platformsGrid"></div>
+        </div>
+
+    </main>
+
+    <!-- Top Business Opportunities -->
+    <section class="opportunities-section">
+        <div class="opportunities-container">
+            <div class="opp-header">
+                <div class="opp-eyebrow">Synthesized Analysis</div>
+                <h2 class="opp-title">Top Business Opportunities</h2>
+                <p class="opp-desc">Concrete, scored business ideas derived from the market signals above. Each opportunity is ranked by a composite score weighing signal strength, market mentions, priority level, pain-point density, cross-platform diversity, and gap severity.</p>
+            </div>
+
+            <div class="opp-toggles">
+                <button class="opp-toggle active" data-opp-filter="all">All</button>
+                <button class="opp-toggle" data-opp-filter="service">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                    Service-Based
+                </button>
+                <button class="opp-toggle" data-opp-filter="product">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a4 4 0 00-8 0v2"/></svg>
+                    Product-Based
+                </button>
+            </div>
+
+            <div class="methodology-wrap">
+                <button class="methodology-btn" id="methodologyToggle">Scoring Methodology</button>
+                <div class="methodology-panel" id="methodologyPanel">
+                    <div class="methodology-grid">
+                        <div class="methodology-item">
+                            <div class="methodology-weight">25%</div>
+                            <div class="methodology-label">Avg Signal Score</div>
+                            <div class="methodology-desc">Normalized average score of linked market signals</div>
+                        </div>
+                        <div class="methodology-item">
+                            <div class="methodology-weight">20%</div>
+                            <div class="methodology-label">Total Mentions</div>
+                            <div class="methodology-desc">Combined mentions normalized across all opportunities</div>
+                        </div>
+                        <div class="methodology-item">
+                            <div class="methodology-weight">20%</div>
+                            <div class="methodology-label">High Priority %</div>
+                            <div class="methodology-desc">Percentage of linked signals rated High priority</div>
+                        </div>
+                        <div class="methodology-item">
+                            <div class="methodology-weight">15%</div>
+                            <div class="methodology-label">Pain Point %</div>
+                            <div class="methodology-desc">Percentage of linked signals classified as pain points</div>
+                        </div>
+                        <div class="methodology-item">
+                            <div class="methodology-weight">10%</div>
+                            <div class="methodology-label">Diversity</div>
+                            <div class="methodology-desc">Cross-platform and cross-sector signal diversity</div>
+                        </div>
+                        <div class="methodology-item">
+                            <div class="methodology-weight">10%</div>
+                            <div class="methodology-label">Gap Severity</div>
+                            <div class="methodology-desc">Expert-rated market gap severity (1-5 scale)</div>
+                        </div>
+                    </div>
+                    <div class="methodology-legend">
+                        <span class="legend-item"><span class="legend-dot" style="background:var(--green);"></span> 85+ Excellent</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:var(--gold);"></span> 70-84 Strong</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:var(--blue);"></span> &lt;70 Promising</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="opp-grid" id="opportunitiesGrid">
+                <div class="loading-msg">Loading opportunities...</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Detail Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal" id="modalDialog">
+            <button class="modal-close" id="modalCloseBtn">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <line x1="3" y1="3" x2="15" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <line x1="15" y1="3" x2="3" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+            </button>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+
+    <script src="./app.js"></script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+# Database
+*.db
+*.db-journal
+*.db-wal
+
+# Cookies (contain session tokens)
+data/bayut_cookies.json
+
+# Logs
+logs/
+*.log
+
+# Reports (generated output)
+reports/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+
+# Node
+node_modules/
+frontend/dist/

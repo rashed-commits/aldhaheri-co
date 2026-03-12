@@ -1,0 +1,52 @@
+services:
+  finance-backend:
+    build: ./backend
+    container_name: finance-backend
+    ports:
+      - "8001:8000"
+    volumes:
+      - finance-data:/data
+    env_file:
+      - ../.env
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  finance-frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${FINANCE_VITE_API_URL:-https://finance.aldhaheri.co}
+        VITE_API_KEY: ${WEBHOOK_API_KEY}
+    container_name: finance-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - finance-backend
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  finance-data:

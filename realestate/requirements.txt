@@ -1,0 +1,6 @@
+# UAE Real Estate Monitor Bot — Dependencies
+requests>=2.31
+beautifulsoup4>=4.12
+lxml>=5.0
+reportlab>=4.0         # PDF report generation
+playwright>=1.40       # Phase 5 — headless browser fallback

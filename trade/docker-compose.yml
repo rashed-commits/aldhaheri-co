@@ -1,0 +1,73 @@
+services:
+  trade-bot:
+    build: .
+    container_name: trade-bot
+    volumes:
+      - trade-data:/app/data
+      - trade-model:/app/model
+      - trade-output:/app/output
+      - trade-logs:/app/logs
+    env_file:
+      - ../.env
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  trade-bot-api:
+    build: ./api
+    container_name: trade-bot-api
+    ports:
+      - "8003:8003"
+    volumes:
+      - trade-output:/app/output:ro
+      - trade-model:/app/model:ro
+      - trade-data:/app/data:ro
+    env_file:
+      - ../.env
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  trade-bot-dashboard:
+    build: ./dashboard
+    container_name: trade-bot-dashboard
+    ports:
+      - "3003:3003"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  trade-data:
+  trade-model:
+  trade-output:
+  trade-logs:

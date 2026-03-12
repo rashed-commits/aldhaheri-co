@@ -1,0 +1,46 @@
+services:
+  realestate-backend:
+    build: ./backend
+    container_name: realestate-backend
+    ports:
+      - "8002:8002"
+    volumes:
+      - realestate-data:/app/data
+    env_file:
+      - ../.env
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  realestate-frontend:
+    build: ./frontend
+    container_name: realestate-frontend
+    ports:
+      - "3002:3002"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  realestate-data:
