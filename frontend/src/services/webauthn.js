@@ -21,6 +21,10 @@ export async function startRegistration() {
   if (!res.ok) throw new Error('Failed to start registration')
   const options = await res.json()
 
+  // Extract challenge_id before converting to ArrayBuffers
+  const challengeId = options.challenge_id
+  delete options.challenge_id
+
   // Convert base64url strings to ArrayBuffers for WebAuthn API
   options.challenge = base64urlToBuffer(options.challenge)
   options.user.id = base64urlToBuffer(options.user.id)
@@ -38,6 +42,7 @@ export async function startRegistration() {
     id: credential.id,
     rawId: bufferToBase64url(credential.rawId),
     type: credential.type,
+    challenge_id: challengeId,
     response: {
       attestationObject: bufferToBase64url(credential.response.attestationObject),
       clientDataJSON: bufferToBase64url(credential.response.clientDataJSON),
@@ -57,6 +62,9 @@ export async function startAuthentication() {
   if (!res.ok) throw new Error('Failed to start authentication')
   const options = await res.json()
 
+  const challengeId = options.challenge_id
+  delete options.challenge_id
+
   options.challenge = base64urlToBuffer(options.challenge)
   if (options.allowCredentials) {
     options.allowCredentials = options.allowCredentials.map(c => ({
@@ -71,6 +79,7 @@ export async function startAuthentication() {
     id: assertion.id,
     rawId: bufferToBase64url(assertion.rawId),
     type: assertion.type,
+    challenge_id: challengeId,
     response: {
       authenticatorData: bufferToBase64url(assertion.response.authenticatorData),
       clientDataJSON: bufferToBase64url(assertion.response.clientDataJSON),

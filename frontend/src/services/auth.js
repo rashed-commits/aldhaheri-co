@@ -1,13 +1,18 @@
 import api from './api'
 
 export async function getAuthStatus() {
-  const res = await api('/api/auth/status')
+  const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/auth/status`, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  })
   return res.json()
 }
 
 export async function loginWithPassword(username, password) {
-  const res = await api('/api/auth/login', {
+  const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/auth/login`, {
     method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
   })
   if (!res.ok) {
