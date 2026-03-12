@@ -1,7 +1,6 @@
 export default function ProjectNav() {
   const navigate = (url) => {
-    const token = localStorage.getItem('token')
-    window.location.href = token ? `${url}?token=${token}` : url
+    window.location.href = url
   }
 
   const projects = [

@@ -1,15 +1,19 @@
-import axios from 'axios'
+const API_URL = import.meta.env.VITE_API_URL || ''
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '',
-})
-
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+async function api(path, options = {}) {
+  const res = await fetch(`${API_URL}${path}`, {
+    ...options,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  })
+  if (res.status === 401) {
+    window.location.href = '/login'
+    throw new Error('Unauthorized')
   }
-  return config
-})
+  return res
+}
 
 export default api

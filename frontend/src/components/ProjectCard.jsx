@@ -1,8 +1,6 @@
 export default function ProjectCard({ name, description, icon, url, status }) {
   const handleClick = () => {
-    const token = localStorage.getItem('token')
-    const targetUrl = token ? `${url}?token=${token}` : url
-    window.open(targetUrl, '_blank')
+    window.open(url, '_blank')
   }
 
   const isOnline = status === 'online'

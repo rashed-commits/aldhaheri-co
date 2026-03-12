@@ -27,7 +27,7 @@ trade.aldhaheri.co         → Trade Bot Dashboard
 
 ## Tech Stack
 
-- **Frontend**: React 18 + Vite + Tailwind CSS
+- **Frontend**: React 19 + Vite + Tailwind CSS (cookie-based auth, no localStorage)
 - **Backend**: FastAPI (Python 3.11)
 - **Auth**: WebAuthn (py-webauthn) + JWT session cookies (python-jose)
 - **Session Store**: SQLite (server-side sessions)
