@@ -1,8 +1,7 @@
 server {
-    listen 80;
     server_name market.aldhaheri.co;
 
-    location / {
+    location /api/ {
         proxy_pass http://localhost:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -10,7 +9,7 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    location /api/ {
+    location = /api {
         proxy_pass http://localhost:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -23,4 +22,26 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
+
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/market.aldhaheri.co/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/market.aldhaheri.co/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+}
+server {
+    if ($host = market.aldhaheri.co) {
+        return 301 https://$host$request_uri;
+    }
+    listen 80;
+    server_name market.aldhaheri.co;
+    return 404;
 }
