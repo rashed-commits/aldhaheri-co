@@ -25,6 +25,8 @@ services:
     container_name: hub-backend
     ports:
       - "4001:4001"
+    volumes:
+      - hub-data:/data
     env_file:
       - .env
     restart: unless-stopped
@@ -43,3 +45,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+volumes:
+  hub-data:
