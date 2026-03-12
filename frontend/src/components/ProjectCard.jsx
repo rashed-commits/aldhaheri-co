@@ -7,6 +7,10 @@ export default function ProjectCard({ name, description, icon, url, status }) {
 
   const isOnline = status === 'online'
   const isChecking = status === 'checking'
+  const isUnknown = status === 'unknown'
+
+  const statusColor = isChecking ? '#94A3B8' : isOnline ? '#10B981' : isUnknown ? '#F59E0B' : '#EF4444'
+  const statusText = isChecking ? 'Checking...' : isOnline ? 'Online' : isUnknown ? 'Unknown' : 'Offline'
 
   return (
     <div
@@ -29,17 +33,13 @@ export default function ProjectCard({ name, description, icon, url, status }) {
       <div className="flex items-center gap-2">
         <span
           className="inline-block w-2 h-2 rounded-full"
-          style={{
-            backgroundColor: isChecking ? '#94A3B8' : isOnline ? '#10B981' : '#EF4444',
-          }}
+          style={{ backgroundColor: statusColor }}
         />
         <span
           className="text-xs font-medium"
-          style={{
-            color: isChecking ? '#94A3B8' : isOnline ? '#10B981' : '#EF4444',
-          }}
+          style={{ color: statusColor }}
         >
-          {isChecking ? 'Checking...' : isOnline ? 'Online' : 'Offline'}
+          {statusText}
         </span>
       </div>
     </div>
