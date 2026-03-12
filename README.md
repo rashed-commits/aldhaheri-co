@@ -1,37 +1,52 @@
 # aldhaheri.co — Personal Command Center
 
-A unified dark-themed hub providing SSO access to all personal projects via subdomains.
+Monorepo for all aldhaheri.co services. SSO hub + four subdomain projects, deployed from a single repo on one DigitalOcean droplet.
 
-## Architecture
+## Subdomains
 
 ```
-aldhaheri.co               → Hub login + project selector  (this repo)
+aldhaheri.co               → Hub login + project selector
 finance.aldhaheri.co       → SMS Finance Tracker
 market.aldhaheri.co        → UAE Market Intel
 realestate.aldhaheri.co    → UAE Real Estate Analytics
 trade.aldhaheri.co         → Trade Bot Dashboard
 ```
 
+## Monorepo Structure
+
+```
+aldhaheri_co/
+  hub/                    # SSO hub (ports 4000, 4001)
+  finance/                # SMS finance tracker (ports 3000, 8001)
+  market/                 # UAE market intel (port 8000)
+  realestate/             # Real estate analytics (ports 3002, 8002)
+  trade/                  # ML trade bot + dashboard (ports 3003, 8003)
+  docker-compose.yml      # Root compose — includes per-project files
+  .env                    # Single env file for ALL services
+  deploy.sh               # Push + VPS pull + rebuild
+  nginx/                  # Nginx site configs
+```
+
+Each project has its own `docker-compose.yml`. The root compose uses `include:` to merge them:
+
+```yaml
+include:
+  - path: ./finance/docker-compose.yml
+  - path: ./market/docker-compose.yml
+  - path: ./realestate/docker-compose.yml
+  - path: ./trade/docker-compose.yml
+```
+
 ## Auth Flow
 
 **Primary**: WebAuthn/FIDO2 passkey authentication
-**Fallback**: Password login for initial setup and emergency recovery
+**Fallback**: Password login for initial setup
 
-1. User visits aldhaheri.co
-2. If passkeys are registered, user authenticates with passkey (WebAuthn)
-3. If no passkeys exist (first setup), user logs in with password
-4. Server creates a session stored in SQLite and issues a JWT in a secure HTTP-only cookie
-5. Session cookie is scoped to `.aldhaheri.co` domain (shared across subdomains)
-6. Sessions have 30-minute idle timeout and 8-hour absolute timeout
-7. Rate limiting (5 attempts / 5 min, 15-min lockout) protects against brute force
-
-## Tech Stack
-
-- **Frontend**: React 19 + Vite + Tailwind CSS (cookie-based auth, no localStorage)
-- **Backend**: FastAPI (Python 3.11)
-- **Auth**: WebAuthn (py-webauthn) + JWT session cookies (python-jose)
-- **Session Store**: SQLite (server-side sessions)
-- **Deployment**: Docker Compose + Nginx + Certbot
+1. User visits aldhaheri.co and authenticates (passkey or password)
+2. Server creates session in SQLite and issues JWT in secure HTTP-only cookie
+3. Cookie is scoped to `.aldhaheri.co` (shared across subdomains)
+4. All subdomain backends validate the cookie using the shared `JWT_SECRET`
+5. Rate limiting: 5 attempts / 5 min, 15-min lockout
 
 ## Setup
 
@@ -46,35 +61,44 @@ cp .env.example .env
 
 ### 2. Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `HUB_USERNAME` | Login username (password fallback) |
-| `HUB_PASSWORD` | Login password (password fallback) |
-| `JWT_SECRET` | Shared JWT secret — **must be the same across ALL project repos** |
-| `RP_ID` | WebAuthn Relying Party ID (default: `aldhaheri.co`) |
-| `RP_ORIGIN` | WebAuthn expected origin (default: `https://aldhaheri.co`) |
-| `COOKIE_DOMAIN` | Session cookie domain (default: `.aldhaheri.co`) |
-| `COOKIE_SECURE` | Set cookies as Secure (default: `true`) |
-| `VITE_API_URL` | Frontend API URL (e.g., `https://aldhaheri.co`) |
+See `.env.example` for the full list. Key variables:
+
+| Variable | Used By | Description |
+|----------|---------|-------------|
+| `JWT_SECRET` | All | Shared SSO signing secret |
+| `HUB_USERNAME` / `HUB_PASSWORD` | Hub | Login credentials |
+| `ANTHROPIC_API_KEY` | Finance | Claude API for SMS parsing |
+| `WEBHOOK_API_KEY` | Finance | Tasker webhook auth |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | Finance | Transaction notifications |
+| `OPENAI_API_KEY` | Market | GPT-4o-mini for signals |
+| `ALPACA_API_KEY` / `ALPACA_SECRET_KEY` | Trade | Paper trading |
 
 ### 3. Local Development
 
 ```bash
-# Backend
-cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload --port 4001
+# Hub
+cd hub/backend && pip install -r requirements.txt && uvicorn main:app --reload --port 4001
+cd hub/frontend && npm install && npm run dev
 
-# Frontend
-cd frontend
-npm install
-npm run dev
+# Finance
+cd finance/backend && pip install -r requirements.txt && uvicorn backend.main:app --reload --port 8000
+cd finance/frontend && npm install && npm run dev
+
+# Market
+cd market && pip install -r requirements.txt && python server.py
 ```
 
 ### 4. Docker Deployment
 
 ```bash
+# All services
 docker compose up -d --build
+
+# Single service
+docker compose up -d --build finance-backend
+
+# View logs
+docker compose logs -f finance-backend
 ```
 
 ### 5. VPS Deployment
@@ -89,43 +113,40 @@ bash deploy.sh
 |--------|------|-------|
 | `@` | A | 165.232.162.72 |
 | `www` | A | 165.232.162.72 |
+| `finance` | A | 165.232.162.72 |
 | `market` | A | 165.232.162.72 |
 | `realestate` | A | 165.232.162.72 |
 | `trade` | A | 165.232.162.72 |
 
-> `finance` A record already exists — do not modify.
-
 ## Adding a New Project
 
-1. Add an entry to `frontend/src/config/projects.js`:
-   ```js
-   {
-     name: 'Project Name',
-     description: 'Short description',
-     icon: '🎯',
-     url: 'https://subdomain.aldhaheri.co',
-     healthUrl: 'https://subdomain.aldhaheri.co/health'
-   }
-   ```
-2. Add DNS A record for the subdomain → `165.232.162.72`
-3. Create Nginx server block at `/etc/nginx/sites-available/subdomain.aldhaheri.co`
-4. Symlink: `ln -s /etc/nginx/sites-available/subdomain.aldhaheri.co /etc/nginx/sites-enabled/`
-5. Run `certbot --nginx -d subdomain.aldhaheri.co`
-6. Add SSO middleware to the project repo using the shared `JWT_SECRET`
-7. Deploy the project container
+1. Create `<project>/` directory with backend/frontend and `docker-compose.yml`
+2. Add `include:` entry in root `docker-compose.yml`
+3. Add env vars to root `.env` and `.env.example`
+4. Add card to `hub/frontend/src/config/projects.js`
+5. Add DNS A record → 165.232.162.72
+6. Create Nginx config + `certbot --nginx -d <subdomain>`
+7. Deploy: `docker compose up -d --build`
 
-## API Endpoints
+## Hub API Endpoints
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/api/auth/login` | No | Password login (fallback) |
-| GET | `/api/auth/verify` | Yes | Verify current session |
-| POST | `/api/auth/logout` | No | Revoke session + clear cookie |
-| GET | `/api/auth/status` | No | Check if passkeys are registered |
+| POST | `/api/auth/login` | No | Password login |
+| GET | `/api/auth/verify` | Yes | Verify session |
+| POST | `/api/auth/logout` | No | Revoke session |
+| GET | `/api/auth/status` | No | Check passkey status |
 | POST | `/api/auth/webauthn/register/begin` | Yes | Start passkey registration |
-| POST | `/api/auth/webauthn/register/complete` | Yes | Complete passkey registration |
+| POST | `/api/auth/webauthn/register/complete` | Yes | Complete registration |
 | POST | `/api/auth/webauthn/login/begin` | No | Start passkey login |
 | POST | `/api/auth/webauthn/login/complete` | No | Complete passkey login |
-| GET | `/api/auth/webauthn/credentials` | Yes | List registered passkeys |
-| DELETE | `/api/auth/webauthn/credentials/{id}` | Yes | Delete a passkey |
 | GET | `/health` | No | Health check |
+
+## Archived Repos
+
+These repos are read-only archives. All development happens here.
+
+- `rashed-commits/sms-finance` → `finance/`
+- `rashed-commits/uae-market-intel` → `market/`
+- `rashed-commits/uae-realestate-bot` → `realestate/`
+- `rashed-commits/trade-bot` → `trade/`
