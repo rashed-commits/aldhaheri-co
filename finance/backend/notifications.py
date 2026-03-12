@@ -28,7 +28,10 @@ async def send_telegram_notification(txn) -> None:
             f"Merchant: {merchant_str}\n"
             f"Category: {txn.category}\n"
             f"Date: {time_str}\n\n"
-            f"\U0001f449 {DASHBOARD_URL}"
+            f"\U0001f449 {DASHBOARD_URL}\n\n"
+            f"\u2014\n"
+            f"This is an automated notification from Naxistant. "
+            f"Naxistant cannot respond to these updates yet \u2014 coming in a future update."
         )
 
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"

@@ -18,6 +18,11 @@ from src.utils import get_logger
 log = get_logger("notifications")
 
 _TELEGRAM_URL = "https://api.telegram.org/bot{token}/sendMessage"
+_NAXISTANT_FOOTER = (
+    "\n\n\u2014\n"
+    "This is an automated notification from Naxistant. "
+    "Naxistant cannot respond to these updates yet \u2014 coming in a future update."
+)
 
 
 # ---------------------------------------------------------------------------
@@ -36,7 +41,7 @@ def _send_message(text: str) -> None:
     try:
         resp = requests.post(
             _TELEGRAM_URL.format(token=token),
-            json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"},
+            json={"chat_id": chat_id, "text": text + _NAXISTANT_FOOTER, "parse_mode": "Markdown"},
             timeout=10,
         )
         if not resp.ok:
