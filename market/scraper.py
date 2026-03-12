@@ -696,6 +696,41 @@ def generate_opportunities():
     return {"generated": count}
 
 
+def _notify_scrape_complete(pipeline_summary: dict, opp_summary: dict) -> None:
+    """Send a Telegram summary after a scrape run completes."""
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
+    if not token or not chat_id:
+        return
+
+    message = (
+        "\U0001f4ca *Market Intel Scrape Complete*\n\n"
+        f"Raw posts scraped: {pipeline_summary.get('scraped', 0):,}\n"
+        f"New (after dedup): {pipeline_summary.get('new', 0):,}\n"
+        f"Signals stored: {pipeline_summary.get('inserted', 0):,}\n"
+        f"Skipped (irrelevant): {pipeline_summary.get('skipped_irrelevant', 0):,}\n"
+        f"Opportunities generated: {opp_summary.get('generated', 0)}\n"
+        f"Duration: {pipeline_summary.get('elapsed_seconds', 0):.0f}s\n\n"
+        "\U0001f449 https://market.aldhaheri.co\n\n"
+        "\u2014\n"
+        "This is an automated notification from Naxistant. "
+        "Naxistant cannot respond to these updates yet \u2014 coming in a future update."
+    )
+
+    try:
+        import requests as _req
+        resp = _req.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": chat_id, "text": message, "parse_mode": "Markdown"},
+            timeout=10,
+        )
+        if not resp.ok:
+            log.warning("Telegram API %d: %s", resp.status_code, resp.text[:200])
+    except Exception as e:
+        log.error("Telegram notification failed: %s", e)
+
+
 if __name__ == "__main__":
-    run_pipeline()
-    generate_opportunities()
+    pipeline_summary = run_pipeline()
+    opp_summary = generate_opportunities()
+    _notify_scrape_complete(pipeline_summary, opp_summary)

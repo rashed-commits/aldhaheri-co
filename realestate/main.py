@@ -242,6 +242,9 @@ def main():
 
         elapsed = time.time() - start
         log.info("Finished %d listings in %.1fs", total, elapsed)
+
+        from notifications import notify_scrape_complete
+        notify_scrape_complete(total, total, 0, elapsed)
     else:
         # Full pipeline
         summary = run_full_pipeline(skip_bayut=args.skip_bayut)
@@ -254,6 +257,14 @@ def main():
         elapsed = time.time() - start
         log.info("All done in %.1fs — summary: %s", elapsed, summary)
         print(json.dumps(summary, indent=2))
+
+        from notifications import notify_scrape_complete
+        notify_scrape_complete(
+            summary.get("total_fetched", 0),
+            summary.get("new", 0),
+            summary.get("updated", 0),
+            elapsed,
+        )
 
 
 if __name__ == "__main__":
