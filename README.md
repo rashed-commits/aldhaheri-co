@@ -12,19 +12,25 @@ realestate.aldhaheri.co    → UAE Real Estate Analytics
 trade.aldhaheri.co         → Trade Bot Dashboard
 ```
 
-## SSO Flow
+## Auth Flow
 
-1. User visits aldhaheri.co and logs in
-2. Hub issues a signed JWT (HS256, 8hr expiry)
-3. Token stored in localStorage
-4. User clicks a project card → subdomain opens with `?token=JWT`
-5. Subdomain validates JWT using shared `JWT_SECRET`
+**Primary**: WebAuthn/FIDO2 passkey authentication
+**Fallback**: Password login for initial setup and emergency recovery
+
+1. User visits aldhaheri.co
+2. If passkeys are registered, user authenticates with passkey (WebAuthn)
+3. If no passkeys exist (first setup), user logs in with password
+4. Server creates a session stored in SQLite and issues a JWT in a secure HTTP-only cookie
+5. Session cookie is scoped to `.aldhaheri.co` domain (shared across subdomains)
+6. Sessions have 30-minute idle timeout and 8-hour absolute timeout
+7. Rate limiting (5 attempts / 5 min, 15-min lockout) protects against brute force
 
 ## Tech Stack
 
 - **Frontend**: React 18 + Vite + Tailwind CSS
 - **Backend**: FastAPI (Python 3.11)
-- **Auth**: JWT via python-jose
+- **Auth**: WebAuthn (py-webauthn) + JWT session cookies (python-jose)
+- **Session Store**: SQLite (server-side sessions)
 - **Deployment**: Docker Compose + Nginx + Certbot
 
 ## Setup
@@ -42,9 +48,13 @@ cp .env.example .env
 
 | Variable | Description |
 |----------|-------------|
-| `HUB_USERNAME` | Login username |
-| `HUB_PASSWORD` | Login password |
+| `HUB_USERNAME` | Login username (password fallback) |
+| `HUB_PASSWORD` | Login password (password fallback) |
 | `JWT_SECRET` | Shared JWT secret — **must be the same across ALL project repos** |
+| `RP_ID` | WebAuthn Relying Party ID (default: `aldhaheri.co`) |
+| `RP_ORIGIN` | WebAuthn expected origin (default: `https://aldhaheri.co`) |
+| `COOKIE_DOMAIN` | Session cookie domain (default: `.aldhaheri.co`) |
+| `COOKIE_SECURE` | Set cookies as Secure (default: `true`) |
 | `VITE_API_URL` | Frontend API URL (e.g., `https://aldhaheri.co`) |
 
 ### 3. Local Development
@@ -106,9 +116,16 @@ bash deploy.sh
 
 ## API Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/auth/login` | Login with username/password |
-| GET | `/api/auth/verify` | Verify JWT token |
-| POST | `/api/auth/logout` | Logout (blacklist token) |
-| GET | `/health` | Health check |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/auth/login` | No | Password login (fallback) |
+| GET | `/api/auth/verify` | Yes | Verify current session |
+| POST | `/api/auth/logout` | No | Revoke session + clear cookie |
+| GET | `/api/auth/status` | No | Check if passkeys are registered |
+| POST | `/api/auth/webauthn/register/begin` | Yes | Start passkey registration |
+| POST | `/api/auth/webauthn/register/complete` | Yes | Complete passkey registration |
+| POST | `/api/auth/webauthn/login/begin` | No | Start passkey login |
+| POST | `/api/auth/webauthn/login/complete` | No | Complete passkey login |
+| GET | `/api/auth/webauthn/credentials` | Yes | List registered passkeys |
+| DELETE | `/api/auth/webauthn/credentials/{id}` | Yes | Delete a passkey |
+| GET | `/health` | No | Health check |

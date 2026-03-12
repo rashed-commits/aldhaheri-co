@@ -11,18 +11,20 @@ ALGORITHM: str = "HS256"
 TOKEN_EXPIRY_HOURS: int = 8
 
 
-def create_token(username: str) -> tuple[str, datetime]:
-    """Create a JWT token for the given username.
+def create_session_token(user_id: str, session_id: str) -> str:
+    """Create a JWT token for a session.
 
-    Returns a tuple of (token, expires_at).
+    Returns the encoded JWT string.
     """
-    expires_at = datetime.now(timezone.utc) + timedelta(hours=TOKEN_EXPIRY_HOURS)
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(hours=TOKEN_EXPIRY_HOURS)
     payload = {
-        "sub": username,
+        "sub": user_id,
+        "sid": session_id,
+        "iat": int(now.timestamp()),
         "exp": expires_at,
     }
-    token = jwt.encode(payload, JWT_SECRET, algorithm=ALGORITHM)
-    return token, expires_at
+    return jwt.encode(payload, JWT_SECRET, algorithm=ALGORITHM)
 
 
 def decode_token(token: str) -> dict | None:

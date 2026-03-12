@@ -7,10 +7,26 @@ class LoginRequest(BaseModel):
 
 
 class LoginResponse(BaseModel):
-    token: str
-    expires_at: str
+    message: str
+    user: str
 
 
 class VerifyResponse(BaseModel):
     valid: bool
-    username: str
+    user: str
+
+
+class AuthStatusResponse(BaseModel):
+    has_passkeys: bool
+    setup_required: bool
+
+
+class CredentialResponse(BaseModel):
+    id: str
+    name: str
+    created_at: str
+    last_used: str | None
+
+
+class RenameCredentialRequest(BaseModel):
+    name: str
