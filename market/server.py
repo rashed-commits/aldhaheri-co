@@ -4,6 +4,7 @@ Serves signal data from SQLite database via Flask
 """
 
 import json
+import math
 import sqlite3
 import os
 from datetime import datetime
@@ -112,11 +113,27 @@ def init_db():
 
 
 # ===================== HELPERS =====================
+def _time_decay(date_str: str, half_life_days: float = 14.0) -> float:
+    """Return a decay multiplier between 0 and 1 based on signal age.
+    Half-life of 14 days: a 14-day-old signal keeps 50% weight,
+    28-day-old keeps 25%, etc.  Never drops below 0.05."""
+    if not date_str:
+        return 0.5
+    try:
+        collected = datetime.fromisoformat(date_str.replace("Z", "+00:00")).replace(tzinfo=None)
+        age_days = max((datetime.utcnow() - collected).total_seconds() / 86400, 0)
+        return max(math.exp(-0.693 * age_days / half_life_days), 0.05)
+    except (ValueError, TypeError):
+        return 0.5
+
+
 def rows_to_signals(rows):
     signals = []
     for row in rows:
         d = dict(row)
         d["keywords"] = [k.strip() for k in d["keywords"].split(",") if k.strip()] if d.get("keywords") else []
+        decay = _time_decay(d.get("date_collected"))
+        d["weighted_score"] = round((d.get("score") or 0) * decay, 1)
         signals.append(d)
     return signals
 
@@ -155,6 +172,7 @@ def api():
             limit = request.args.get("limit", 200, type=int)
             rows = conn.execute("SELECT * FROM signals ORDER BY score DESC, id ASC LIMIT ?", (limit,)).fetchall()
             signals = rows_to_signals(rows)
+            signals.sort(key=lambda s: s["weighted_score"], reverse=True)
             result = {"signals": signals, "count": len(signals), "timestamp": datetime.now().isoformat()}
 
         elif action == "stats":

@@ -277,7 +277,7 @@
                 '<div class="card-stats">' +
                     (s.mentions ? '<span class="card-stat">' + s.mentions + ' mentions</span>' : '') +
                 '</div>' +
-                '<span class="card-score">Score: ' + (s.score != null ? s.score : '--') + '</span>' +
+                '<span class="card-score">Score: ' + (s.weighted_score != null ? s.weighted_score : (s.score != null ? s.score : '--')) + '</span>' +
             '</div>' +
             (s.arabic_title ? '<div class="card-arabic">' + esc(s.arabic_title) + '</div>' : '') +
         '</div>';
@@ -466,6 +466,7 @@
                 detailItem('Platform', esc(s.platform)) +
                 detailItem('Priority', esc(s.priority)) +
                 detailItem('Score', s.score != null ? String(s.score) : '--') +
+                detailItem('Weighted Score', s.weighted_score != null ? String(s.weighted_score) : '--') +
                 (s.mentions ? detailItem('Mentions', String(s.mentions)) : '') +
                 detailItem('Date Collected', s.date_collected || '--') +
             '</div>';
