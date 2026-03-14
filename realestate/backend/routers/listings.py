@@ -22,8 +22,9 @@ def _connect():
     """Yield a read-only SQLite connection."""
     if not DB_PATH.exists():
         raise HTTPException(status_code=503, detail="Database not available")
-    conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True, timeout=10)
+    conn = sqlite3.connect(str(DB_PATH), timeout=10)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA query_only = ON")
     try:
         yield conn
     finally:
