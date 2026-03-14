@@ -8,6 +8,7 @@ import PositionsTable from '../components/PositionsTable'
 import SignalsPanel from '../components/SignalsPanel'
 import ModelMetrics from '../components/ModelMetrics'
 import FeatureChart from '../components/FeatureChart'
+import TradeReasoning from '../components/TradeReasoning'
 import api from '../api'
 
 function Dashboard() {
@@ -17,19 +18,21 @@ function Dashboard() {
   const [signals, setSignals] = useState({ date: null, signals: [] })
   const [metrics, setMetrics] = useState(null)
   const [features, setFeatures] = useState(null)
+  const [reasoning, setReasoning] = useState({ date: null, signals: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [sumRes, posRes, histRes, sigRes, perfRes, featRes] = await Promise.allSettled([
+        const [sumRes, posRes, histRes, sigRes, perfRes, featRes, reasonRes] = await Promise.allSettled([
           api('/api/portfolio/summary'),
           api('/api/portfolio/positions'),
           api('/api/portfolio/history'),
           api('/api/portfolio/signals/latest'),
           api('/api/portfolio/performance'),
           api('/api/portfolio/features'),
+          api('/api/portfolio/signals/latest/reasoning'),
         ])
 
         if (sumRes.status === 'fulfilled' && sumRes.value) setSummary(sumRes.value)
@@ -38,6 +41,7 @@ function Dashboard() {
         if (sigRes.status === 'fulfilled' && sigRes.value) setSignals(sigRes.value)
         if (perfRes.status === 'fulfilled' && perfRes.value) setMetrics(perfRes.value.metrics)
         if (featRes.status === 'fulfilled' && featRes.value) setFeatures(featRes.value.features)
+        if (reasonRes.status === 'fulfilled' && reasonRes.value) setReasoning(reasonRes.value)
       } catch (err) {
         setError('Failed to load portfolio data.')
         console.error(err)
@@ -82,6 +86,8 @@ function Dashboard() {
             </div>
 
             <FeatureChart features={features} />
+
+            <TradeReasoning date={reasoning.date} signals={reasoning.signals} />
           </>
         )}
       </main>

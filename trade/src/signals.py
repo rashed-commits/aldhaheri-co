@@ -134,6 +134,105 @@ def fetch_market_recent(lookback: int = _LOOKBACK_DAYS) -> pd.DataFrame:
     return pd.DataFrame()
 
 
+def _build_reasoning(row: pd.Series, feature_names: List[str]) -> List[Dict[str, Any]]:
+    """
+    Extract key indicator values from the feature row and return a list of
+    human-readable reasoning factors that explain the signal.
+    """
+    factors: List[Dict[str, Any]] = []
+
+    def _val(col: str) -> float | None:
+        if col in row.index and pd.notna(row[col]):
+            return float(row[col])
+        return None
+
+    # RSI
+    rsi = _val("rsi")
+    if rsi is not None:
+        if rsi >= 70:
+            factors.append({"indicator": "RSI", "value": round(rsi, 1),
+                            "interpretation": "Overbought territory — momentum may slow"})
+        elif rsi <= 30:
+            factors.append({"indicator": "RSI", "value": round(rsi, 1),
+                            "interpretation": "Oversold territory — potential bounce"})
+        else:
+            factors.append({"indicator": "RSI", "value": round(rsi, 1),
+                            "interpretation": "Neutral range"})
+
+    # MACD
+    macd_hist = _val("macd_hist")
+    macd = _val("macd")
+    if macd_hist is not None:
+        if macd_hist > 0:
+            factors.append({"indicator": "MACD", "value": round(macd_hist, 4),
+                            "interpretation": "Bullish — MACD above signal line"})
+        else:
+            factors.append({"indicator": "MACD", "value": round(macd_hist, 4),
+                            "interpretation": "Bearish — MACD below signal line"})
+
+    # Bollinger Band position
+    close = _val("close")
+    bb_upper = _val("bb_upper")
+    bb_lower = _val("bb_lower")
+    bb_mid = _val("bb_mid")
+    if close is not None and bb_upper is not None and bb_lower is not None:
+        bb_range = bb_upper - bb_lower
+        if bb_range > 0:
+            bb_pct = (close - bb_lower) / bb_range
+            if bb_pct >= 0.8:
+                factors.append({"indicator": "Bollinger Bands", "value": round(bb_pct * 100, 1),
+                                "interpretation": "Price near upper band — possible resistance"})
+            elif bb_pct <= 0.2:
+                factors.append({"indicator": "Bollinger Bands", "value": round(bb_pct * 100, 1),
+                                "interpretation": "Price near lower band — possible support"})
+
+    # Volume
+    vol_z = _val("volume_zscore")
+    if vol_z is not None and abs(vol_z) >= 1.5:
+        direction = "above" if vol_z > 0 else "below"
+        factors.append({"indicator": "Volume", "value": round(vol_z, 2),
+                        "interpretation": f"Unusual volume — {abs(vol_z):.1f}σ {direction} average"})
+
+    # Short-term momentum (1-day return)
+    ret1 = _val("return_lag_1")
+    if ret1 is not None:
+        factors.append({"indicator": "1-Day Return", "value": round(ret1 * 100, 2),
+                        "interpretation": f"{'Positive' if ret1 > 0 else 'Negative'} momentum ({ret1 * 100:+.2f}%)"})
+
+    # 5-day momentum
+    ret5 = _val("return_lag_5")
+    if ret5 is not None:
+        factors.append({"indicator": "5-Day Return", "value": round(ret5 * 100, 2),
+                        "interpretation": f"{'Uptrend' if ret5 > 0 else 'Downtrend'} over past week ({ret5 * 100:+.2f}%)"})
+
+    # VIX (market fear)
+    vix = _val("vix")
+    if vix is not None:
+        if vix >= 25:
+            factors.append({"indicator": "VIX", "value": round(vix, 1),
+                            "interpretation": "Elevated market fear"})
+        elif vix <= 15:
+            factors.append({"indicator": "VIX", "value": round(vix, 1),
+                            "interpretation": "Low volatility / complacency"})
+
+    # Relative strength vs SPY
+    rs20 = _val("relative_strength_20d")
+    if rs20 is not None and abs(rs20) >= 0.02:
+        verb = "Outperforming" if rs20 > 0 else "Underperforming"
+        factors.append({"indicator": "Relative Strength (20d)", "value": round(rs20 * 100, 2),
+                        "interpretation": f"{verb} SPY by {abs(rs20) * 100:.1f}%"})
+
+    # ATR (volatility)
+    atr = _val("atr")
+    if atr is not None and close is not None and close > 0:
+        atr_pct = atr / close * 100
+        if atr_pct >= 3:
+            factors.append({"indicator": "ATR", "value": round(atr_pct, 2),
+                            "interpretation": f"High volatility — {atr_pct:.1f}% daily range"})
+
+    return factors
+
+
 def compute_signal(
     ticker: str,
     model: Any,
@@ -197,12 +296,16 @@ def compute_signal(
     else:
         signal = "HOLD"
 
+    # Build per-signal reasoning from key indicator values
+    reasoning = _build_reasoning(latest, feature_names)
+
     return {
         "ticker": ticker,
         "date": row_date,
         "close": round(close_price, 4),
         "prob_up": round(prob_up, 4),
         "signal": signal,
+        "reasoning": reasoning,
     }
 
 

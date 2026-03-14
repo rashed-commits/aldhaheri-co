@@ -227,6 +227,26 @@ def portfolio_signals_latest():
     return {"date": date_str, "signals": data}
 
 
+@router.get("/signals/latest/reasoning")
+def portfolio_signals_reasoning():
+    """Latest signals with per-signal reasoning factors."""
+    pattern = str(OUTPUT_DIR / "signals_*.json")
+    files = sorted(glob.glob(pattern), reverse=True)
+    if not files:
+        return {"date": None, "signals": []}
+
+    latest_file = files[0]
+    fname = Path(latest_file).stem
+    date_str = fname.replace("signals_", "")
+    data = _read_json(Path(latest_file)) or []
+
+    # Only return signals that have reasoning attached
+    signals_with_reasoning = [
+        s for s in data if s.get("reasoning")
+    ]
+    return {"date": date_str, "signals": signals_with_reasoning}
+
+
 @router.get("/performance")
 def portfolio_performance():
     """Model metrics — accuracy, ROC-AUC, F1."""
