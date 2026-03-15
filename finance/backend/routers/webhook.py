@@ -2,6 +2,7 @@ import os
 import logging
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.db import get_db
@@ -49,6 +50,16 @@ async def receive_sms(
     if any(kw in sms_lower for kw in failed_keywords):
         logger.info("Skipped failed transaction SMS: %s", sms_text[:80])
         return {"status": "skipped", "reason": "failed transaction"}
+
+    existing = await db.execute(
+        select(Transaction.id).where(
+            Transaction.sms_raw == sms_text,
+            Transaction.deleted == False,
+        )
+    )
+    if existing.scalar_one_or_none() is not None:
+        logger.info("Skipped duplicate SMS: %s", sms_text[:80])
+        return {"status": "skipped", "reason": "duplicate SMS"}
 
     parsed = await parse_sms(sms_text)
 
