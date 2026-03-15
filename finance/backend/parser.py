@@ -21,7 +21,7 @@ Return exactly this structure:
   "date": "MM/DD/YYYY",
   "time": "HH:MM AM/PM",
   "merchant": "name or null",
-  "category": "Food & Dining|Shopping|Transport|Utilities|Healthcare|Education|Entertainment|Travel|Real Estate|Salary|Transfer|ATM Cash|Credit Card Payment|Other",
+  "category": "Food & Dining|Shopping|Transport|Healthcare|Education|Entertainment|Travel|Real Estate|Transfer|Internal Transfers|Credit Card Payment|Cash Withdrawal|Cheque Deposit|Allowance & Salaries|Bills|Beauty & Personal Care|Car Expenses & Fuel|Charity|Armed Forces|Maid Expenses|Laundry & Dry Cleaning|Traffic Penalties and Service Fees|Loan|Bank Charges|Insurance|Software & Subscriptions|Gaming|Hotels & Accommodation|Interest Income|Refund|Government|Groceries|Home & Furniture|Electronics|Other",
   "flow_type": "Inflow|Outflow"
 }
 
