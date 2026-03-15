@@ -35,6 +35,7 @@ class Config:
         default_factory=lambda: [
             "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA",
             "META", "TSLA", "BRK-B", "JPM", "V",
+            "JNJ", "LLY", "XOM", "PG", "KO", "WMT",
         ]
     )
 
@@ -67,7 +68,7 @@ class Config:
     cv_folds: int = 5
 
     # ------------------------------------------------------- signal generation
-    signal_threshold_buy: float = 0.6
+    signal_threshold_buy: float = 0.65
     signal_threshold_sell: float = 0.4
     top_n_signals: int = 5
 
