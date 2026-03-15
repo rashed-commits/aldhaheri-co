@@ -27,6 +27,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from config import (
+    BUDGET_PROFILES,
     HEADERS,
     MAX_PAGES_PER_SEARCH,
     PROPERTYFINDER as PF,
@@ -159,6 +160,12 @@ def _normalise(raw: dict, purpose: str, target_city: str, target_area: str | Non
         price = float(price)
     except (TypeError, ValueError):
         return None
+
+    # Enforce budget profile price limits
+    budget = BUDGET_PROFILES.get(purpose)
+    if budget:
+        if price > budget["max_price"] or price < budget["min_price"]:
+            return None
 
     # Size
     size_obj = raw.get("size", {})

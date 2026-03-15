@@ -56,7 +56,7 @@ PROPERTY_TYPES = ["apartment", "villa", "townhouse", "penthouse"]
 BUDGET_PROFILES = {
     "sale": {
         "min_price": 400_000,     # AED
-        "max_price": 10_000_000,  # AED
+        "max_price": 3_000_000,   # AED
     },
     "rent": {
         "min_price": 20_000,      # AED / year
