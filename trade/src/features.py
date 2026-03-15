@@ -325,6 +325,50 @@ def _add_market_regime(
 
 
 # ---------------------------------------------------------------------------
+# Sentiment features (FinBERT)
+# ---------------------------------------------------------------------------
+
+def _add_sentiment_features(
+    df: pd.DataFrame, sentiment_df: pd.DataFrame
+) -> pd.DataFrame:
+    """Merge daily FinBERT sentiment scores into OHLCV data.
+
+    Joins on date, forward-fills gaps (weekends/holidays), and fills any
+    remaining missing days with 0 (neutral sentiment).
+    """
+    sent_cols = ["sentiment_positive_score", "sentiment_negative_score", "sentiment_net_score"]
+
+    if sentiment_df.empty:
+        for col in sent_cols:
+            df[col] = 0.0
+        return df
+
+    df["date"] = pd.to_datetime(df["date"]).dt.as_unit("ns")
+    sentiment_df = sentiment_df.copy()
+    sentiment_df["date"] = pd.to_datetime(sentiment_df["date"]).dt.as_unit("ns")
+
+    # Filter sentiment to this ticker if ticker column exists
+    if "ticker" in sentiment_df.columns and "ticker" in df.columns:
+        ticker = df["ticker"].iloc[0]
+        sentiment_df = sentiment_df[sentiment_df["ticker"] == ticker]
+
+    if sentiment_df.empty:
+        for col in sent_cols:
+            df[col] = 0.0
+        return df
+
+    merge_df = sentiment_df[["date"] + sent_cols].sort_values("date")
+    df = df.sort_values("date")
+
+    df = pd.merge_asof(df, merge_df, on="date", direction="backward")
+
+    # Forward-fill then fill remaining with 0 (neutral)
+    df[sent_cols] = df[sent_cols].ffill().fillna(0.0)
+
+    return df
+
+
+# ---------------------------------------------------------------------------
 # Per-ticker feature engineering
 # ---------------------------------------------------------------------------
 
@@ -332,6 +376,7 @@ def build_features(
     df: pd.DataFrame,
     market_df: pd.DataFrame | None = None,
     fund_df: pd.DataFrame | None = None,
+    sentiment_df: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """
     Apply all indicator builders to a single-ticker DataFrame and return
@@ -342,6 +387,7 @@ def build_features(
     df : DataFrame with OHLCV + ticker columns
     market_df : Optional market regime data (VIX + SPY)
     fund_df : Optional quarterly fundamentals for this ticker
+    sentiment_df : Optional daily sentiment scores for this ticker
     """
     df = df.copy().sort_values("date").reset_index(drop=True)
 
@@ -361,6 +407,13 @@ def build_features(
 
     # Market regime features (new)
     df = _add_market_regime(df, market_df)
+
+    # Sentiment features
+    if sentiment_df is not None and not sentiment_df.empty:
+        df = _add_sentiment_features(df, sentiment_df)
+    else:
+        for col in ["sentiment_positive_score", "sentiment_negative_score", "sentiment_net_score"]:
+            df[col] = 0.0
 
     # Target
     df = _add_target(df)
@@ -388,6 +441,15 @@ def run() -> None:
     else:
         log.warning("No market.csv found — market regime features will be NaN.")
 
+    # Load sentiment data
+    sentiment_path = CFG.data_dir / "sentiment.csv"
+    sentiment_df = None
+    if sentiment_path.exists():
+        sentiment_df = load_csv(sentiment_path)
+        log.info("Loaded %d sentiment rows.", len(sentiment_df))
+    else:
+        log.warning("No sentiment.csv found — sentiment features will be neutral (0).")
+
     # Fetch fundamentals per ticker and build features
     log.info("Building features for %d tickers ...", df["ticker"].nunique())
     parts = []
@@ -398,7 +460,7 @@ def run() -> None:
             log.info("  %s: %d quarterly reports found.", ticker, len(fund_df))
         else:
             log.warning("  %s: no quarterly data available.", ticker)
-        parts.append(build_features(grp, market_df=market_df, fund_df=fund_df))
+        parts.append(build_features(grp, market_df=market_df, fund_df=fund_df, sentiment_df=sentiment_df))
 
     features_df = pd.concat(parts, ignore_index=True)
 

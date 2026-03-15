@@ -11,7 +11,7 @@ import pandas as pd
 import yfinance as yf
 
 from src.config import CFG
-from src.utils import ensure_dir, get_logger, save_csv
+from src.utils import ensure_dir, get_logger, load_csv, save_csv
 
 log = get_logger("ingest")
 
@@ -93,3 +93,31 @@ def run() -> None:
         market_path = CFG.data_dir / "market.csv"
         save_csv(market, market_path, index=False)
         log.info("Saved %d market rows to %s", len(market), market_path)
+
+    # Download FinBERT sentiment scores
+    try:
+        from src.sentiment import fetch_all_sentiment
+
+        sentiment = fetch_all_sentiment()
+        if not sentiment.empty:
+            sentiment_path = CFG.data_dir / "sentiment.csv"
+            # Merge with existing sentiment history (accumulate over time)
+            if sentiment_path.exists():
+                existing = load_csv(sentiment_path)
+                existing["date"] = pd.to_datetime(existing["date"])
+                sentiment["date"] = pd.to_datetime(sentiment["date"])
+                combined_sent = pd.concat([existing, sentiment], ignore_index=True)
+                combined_sent = combined_sent.drop_duplicates(
+                    subset=["date", "ticker"], keep="last"
+                )
+                combined_sent = combined_sent.sort_values(["ticker", "date"])
+                save_csv(combined_sent, sentiment_path, index=False)
+                log.info(
+                    "Updated sentiment history: %d rows (%d new) -> %s",
+                    len(combined_sent), len(sentiment), sentiment_path,
+                )
+            else:
+                save_csv(sentiment, sentiment_path, index=False)
+                log.info("Saved %d sentiment rows to %s", len(sentiment), sentiment_path)
+    except Exception as exc:
+        log.warning("Sentiment fetch failed (non-fatal): %s", exc)

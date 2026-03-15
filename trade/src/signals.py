@@ -230,6 +230,21 @@ def _build_reasoning(row: pd.Series, feature_names: List[str]) -> List[Dict[str,
             factors.append({"indicator": "ATR", "value": round(atr_pct, 2),
                             "interpretation": f"High volatility — {atr_pct:.1f}% daily range"})
 
+    # FinBERT Sentiment
+    net_sent = _val("sentiment_net_score")
+    pos_sent = _val("sentiment_positive_score")
+    neg_sent = _val("sentiment_negative_score")
+    if net_sent is not None and (pos_sent or neg_sent):
+        if net_sent > 0.1:
+            factors.append({"indicator": "FinBERT Sentiment", "value": round(net_sent, 3),
+                            "interpretation": f"Positive news sentiment (net={net_sent:+.3f})"})
+        elif net_sent < -0.1:
+            factors.append({"indicator": "FinBERT Sentiment", "value": round(net_sent, 3),
+                            "interpretation": f"Negative news sentiment (net={net_sent:+.3f})"})
+        elif pos_sent and pos_sent > 0:
+            factors.append({"indicator": "FinBERT Sentiment", "value": round(net_sent, 3),
+                            "interpretation": "Neutral news sentiment"})
+
     return factors
 
 
@@ -239,6 +254,7 @@ def compute_signal(
     scaler: Any,
     feature_names: List[str],
     market_df: pd.DataFrame | None = None,
+    sentiment_df: pd.DataFrame | None = None,
 ) -> Dict[str, Any] | None:
     """
     Fetch recent data, engineer features, and return a signal dict for
@@ -259,7 +275,7 @@ def compute_signal(
         fund_df = pd.DataFrame()
 
     try:
-        features_df = build_features(df, market_df=market_df, fund_df=fund_df)
+        features_df = build_features(df, market_df=market_df, fund_df=fund_df, sentiment_df=sentiment_df)
     except Exception as exc:
         log.error("Feature engineering failed for %s: %s", ticker, exc, exc_info=True)
         return None
@@ -381,9 +397,24 @@ def run(dry_run: bool = False) -> None:
         log.warning("Market data fetch failed (non-fatal): %s", exc)
         market_df = None
 
+    # Fetch live FinBERT sentiment for all tickers
+    log.info("Fetching live FinBERT sentiment ...")
+    sentiment_df = None
+    try:
+        from src.sentiment import fetch_all_sentiment
+
+        sentiment_df = fetch_all_sentiment()
+        if sentiment_df is not None and not sentiment_df.empty:
+            log.info("Sentiment data: %d rows across %d tickers.",
+                     len(sentiment_df), sentiment_df["ticker"].nunique())
+        else:
+            log.warning("No sentiment data available — using neutral (0).")
+    except Exception as exc:
+        log.warning("Sentiment fetch failed (non-fatal): %s", exc)
+
     raw_signals: List[Dict[str, Any]] = []
     for ticker in CFG.tickers:
-        result = compute_signal(ticker, model, scaler, feature_names, market_df=market_df)
+        result = compute_signal(ticker, model, scaler, feature_names, market_df=market_df, sentiment_df=sentiment_df)
         if result is not None:
             raw_signals.append(result)
             log.info(

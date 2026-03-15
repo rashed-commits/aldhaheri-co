@@ -10,7 +10,7 @@ DigitalOcean droplet.
 | Phase | Description | Output |
 |-------|-------------|--------|
 | 1 | Data ingestion (yfinance) | `data/combined.csv` |
-| 2 | Feature engineering | `data/features.csv` |
+| 2 | Feature engineering (technicals + fundamentals + sentiment) | `data/features.csv` |
 | 3 | Model training (XGBoost) | `model/saved/` |
 | 4 | Daily signal generation | `output/signals_YYYY-MM-DD.json` |
 | 5 | Alpaca paper trade execution | `output/open_positions.json` |
@@ -107,6 +107,7 @@ trade-bot/
 │   ├── features.py            # Phase 2: feature engineering
 │   ├── train.py               # Phase 3: model training
 │   ├── signals.py             # Phase 4: signal generation
+│   ├── sentiment.py           # FinBERT news sentiment scoring
 │   ├── notifications.py       # Telegram notification helpers
 │   ├── execution/
 │   │   ├── alpaca.py          # Alpaca API wrapper
