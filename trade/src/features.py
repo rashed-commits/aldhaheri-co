@@ -245,8 +245,8 @@ def _add_fundamental_features(
             df[col] = np.nan
         return df
 
-    df["date"] = pd.to_datetime(df["date"])
-    fund_df["date"] = pd.to_datetime(fund_df["date"])
+    df["date"] = pd.to_datetime(df["date"]).dt.as_unit("ns")
+    fund_df["date"] = pd.to_datetime(fund_df["date"]).dt.as_unit("ns")
 
     df = df.sort_values("date")
     fund_df = fund_df.sort_values("date")
@@ -278,9 +278,9 @@ def _add_market_regime(
             df[col] = np.nan
         return df
 
-    df["date"] = pd.to_datetime(df["date"])
+    df["date"] = pd.to_datetime(df["date"]).dt.as_unit("ns")
     market_df = market_df.copy()
-    market_df["date"] = pd.to_datetime(market_df["date"])
+    market_df["date"] = pd.to_datetime(market_df["date"]).dt.as_unit("ns")
 
     # Compute SPY features on market_df before merge
     if "spy_close" in market_df.columns:
