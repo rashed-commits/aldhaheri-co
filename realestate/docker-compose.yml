@@ -5,7 +5,7 @@ services:
     ports:
       - "8002:8002"
     volumes:
-      - realestate-data:/app/data
+      - ./data:/app/data
     env_file:
       - ../.env
     restart: unless-stopped
@@ -42,5 +42,3 @@ services:
         max-size: "10m"
         max-file: "3"
 
-volumes:
-  realestate-data:
