@@ -446,6 +446,88 @@ def build_portfolio_summary(
 
 
 # ---------------------------------------------------------------------------
+# Drawdown circuit breaker
+# ---------------------------------------------------------------------------
+
+_DRAWDOWN_HALT_FILE = "drawdown_halt.json"
+_DRAWDOWN_THRESHOLD = 0.08   # 8% drawdown from peak triggers halt
+_HALT_DAYS = 5               # pause new buys for 5 trading days
+
+
+def _load_peak_equity() -> dict:
+    """Load peak equity tracker from disk."""
+    path = CFG.output_dir / _DRAWDOWN_HALT_FILE
+    if not path.exists():
+        return {"peak_equity": 0.0, "halt_until": None}
+    with open(path) as fh:
+        return json.load(fh)
+
+
+def _save_peak_equity(data: dict) -> None:
+    """Persist peak equity tracker."""
+    path = CFG.output_dir / _DRAWDOWN_HALT_FILE
+    ensure_dir(path.parent)
+    with open(path, "w") as fh:
+        json.dump(data, fh, indent=2)
+
+
+def check_drawdown_halt(equity: float, run_date: str) -> bool:
+    """
+    Check if new buys should be halted due to drawdown.
+
+    Updates peak equity if current equity is a new high.
+    Returns True if buying should be paused.
+    """
+    data = _load_peak_equity()
+    peak = data.get("peak_equity", 0.0)
+    halt_until = data.get("halt_until")
+
+    # Check if we're still in a halt period
+    if halt_until and run_date <= halt_until:
+        log.warning(
+            "DRAWDOWN HALT active until %s (peak=$%.0f, current=$%.0f). "
+            "No new buys.",
+            halt_until, peak, equity,
+        )
+        return True
+
+    # Update peak
+    if equity > peak:
+        peak = equity
+
+    # Check drawdown
+    if peak > 0:
+        drawdown = (peak - equity) / peak
+        if drawdown >= _DRAWDOWN_THRESHOLD:
+            # Calculate halt end date (5 trading days ≈ 7 calendar days)
+            from datetime import timedelta
+            halt_end = (
+                date.fromisoformat(run_date) + timedelta(days=7)
+            ).isoformat()
+            data["peak_equity"] = peak
+            data["halt_until"] = halt_end
+            _save_peak_equity(data)
+            log.warning(
+                "DRAWDOWN CIRCUIT BREAKER triggered: %.1f%% drawdown "
+                "(peak=$%.0f, current=$%.0f). Halting new buys until %s.",
+                drawdown * 100, peak, equity, halt_end,
+            )
+            from src.notifications import _send_message
+            _send_message(
+                f"\U0001f6a8 *Drawdown Circuit Breaker*\n"
+                f"Drawdown: {drawdown:.1%} (peak ${peak:,.0f} → ${equity:,.0f})\n"
+                f"New buys halted until {halt_end}"
+            )
+            return True
+
+    # No halt — save updated peak
+    data["peak_equity"] = peak
+    data["halt_until"] = None
+    _save_peak_equity(data)
+    return False
+
+
+# ---------------------------------------------------------------------------
 # Pipeline entry point
 # ---------------------------------------------------------------------------
 
@@ -457,12 +539,13 @@ def run(dry_run: bool = False) -> None:
     --------
     1. Load today's signals.
     2. Connect to Alpaca, get equity.
-    3. Load positions from disk.
-    4. Manage existing positions (stop-loss / take-profit).
-    5. Process SELL signals.
-    6. Process BUY signals (100% ML budget).
-    7. Persist positions to disk.
-    8. Send portfolio summary to Telegram.
+    3. Check drawdown circuit breaker.
+    4. Load positions from disk.
+    5. Manage existing positions (stop-loss / take-profit).
+    6. Process SELL signals.
+    7. Process BUY signals (if not halted by circuit breaker).
+    8. Persist positions to disk.
+    9. Send portfolio summary to Telegram.
     """
     run_date = date.today().isoformat()
     log.info("=== Phase 5: Execution  date=%s  dry_run=%s ===", run_date, dry_run)
@@ -486,32 +569,38 @@ def run(dry_run: bool = False) -> None:
         log.info("Account equity: $%.2f", equity)
         save_inception_equity(equity)
 
-    # 3. Positions
+    # 3. Drawdown circuit breaker
+    halt_buys = check_drawdown_halt(equity, run_date) if not dry_run else False
+
+    # 4. Positions
     positions_path = CFG.output_dir / "open_positions.json"
     positions = load_positions(positions_path)
     log.info("Loaded %d positions.", len(positions))
 
-    # 4. Stop-loss / take-profit
+    # 5. Stop-loss / take-profit (always runs, even during halt)
     if positions:
         positions = manage_open_positions(api, positions, dry_run=dry_run)
         log.info("%d positions remain after exit checks.", len(positions))
 
-    # 5. SELL signals
+    # 6. SELL signals (always runs, even during halt)
     positions = process_sell_signals(api, signals, positions, dry_run=dry_run)
     log.info("%d positions remain after SELL signals.", len(positions))
 
-    # 6. BUY signals (100% ML budget)
-    positions = process_buy_signals(
-        api, signals, positions, equity, dry_run=dry_run,
-    )
+    # 7. BUY signals (skipped if circuit breaker is active)
+    if halt_buys:
+        log.info("Skipping BUY signals — drawdown circuit breaker active.")
+    else:
+        positions = process_buy_signals(
+            api, signals, positions, equity, dry_run=dry_run,
+        )
 
-    # 7. Persist
+    # 8. Persist
     if dry_run:
         log.info("Dry-run: skipping positions file write.")
     else:
         save_positions(positions, positions_path)
 
-    # 8. Portfolio summary
+    # 9. Portfolio summary
     summary = build_portfolio_summary(api, equity, positions, dry_run=dry_run)
     notify_portfolio_summary(summary)
 
