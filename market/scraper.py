@@ -26,7 +26,7 @@ DB_PATH = os.environ.get(
     "DATABASE_PATH",
     os.path.join(os.path.dirname(__file__), "data", "market_intel.db"),
 )
-MAX_ITEMS = int(os.environ.get("SCRAPE_MAX_ITEMS_PER_SOURCE", "20"))
+MAX_ITEMS = int(os.environ.get("SCRAPE_MAX_ITEMS_PER_SOURCE", "50"))
 
 # ── Lazy client helpers ──────────────────────────────────────────────
 _apify_client = None
@@ -457,7 +457,28 @@ def deduplicate(posts, existing_urls):
 
 CLASSIFY_PROMPT = """\
 You are a UAE market intelligence analyst. Given a social media post or news snippet,
-determine if it contains a meaningful business signal for the UAE market.
+determine if it contains ANY useful business signal related to the UAE/Dubai/Abu Dhabi market.
+
+Be INCLUSIVE — mark relevant=true if the post contains ANY of:
+- Business news, launches, expansions, closures, or pivots
+- Market trends, pricing changes, or industry shifts
+- Real estate activity (sales, rentals, price movements, new developments)
+- Hiring, layoffs, talent demand, or workforce trends
+- Consumer sentiment, complaints, reviews, or service gaps
+- Startup funding, investment, or acquisition activity
+- Regulatory changes, government initiatives, or policy updates
+- Infrastructure, construction, or urban development
+- Tourism, hospitality, or lifestyle trends affecting business
+- Fintech, crypto, banking, or financial services activity
+- Pain points, frustrations, or unmet needs expressed by users
+- General economic indicators or cost-of-living discussions
+
+Only set relevant=false for:
+- Pure spam, ads with no market insight, or bot-generated content
+- Content completely unrelated to the UAE/Gulf region
+- Personal posts with zero business or economic relevance (e.g., vacation selfies)
+
+When in doubt, mark relevant=true with a lower score.
 
 Respond with ONLY a valid JSON object (no markdown fences, no extra text):
 {
@@ -471,8 +492,6 @@ Respond with ONLY a valid JSON object (no markdown fences, no extra text):
   "score": 1-100 (relevance and impact score),
   "keywords": "comma,separated,keywords"
 }
-
-Set relevant=false if the post is spam, off-topic, or has no business insight.
 """
 
 
