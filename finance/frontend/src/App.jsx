@@ -9,7 +9,7 @@ import CategoryDrilldown from "./components/CategoryDrilldown";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ProjectNav from "./components/ProjectNav";
 
-const DEFAULT_EXCLUDED = new Set(["Transfer", "Credit Card Payment"]);
+const DEFAULT_EXCLUDED = new Set(["Internal Transfers", "Credit Card Payment"]);
 
 function StatCard({ label, value, color }) {
   return (
