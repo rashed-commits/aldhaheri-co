@@ -54,6 +54,7 @@ frontend/         → React SPA
 - Never change the Transaction table schema without migration plan
 - Never modify `parser.py` system prompt without testing with real SMS samples
 - Preserve `deleted` soft-delete pattern — never hard delete
+- Failed/declined SMS are filtered pre-parse in webhook.py — do not remove this guard
 
 ## 10. Commands
 ```bash

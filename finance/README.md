@@ -109,7 +109,7 @@ Set up on your Android phone to automatically forward bank SMS to the tracker.
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| `POST` | `/webhook/sms` | X-API-Key | Receive and parse SMS |
+| `POST` | `/webhook/sms` | X-API-Key | Receive and parse SMS (failed/declined transactions are auto-skipped) |
 | `GET` | `/api/auth/verify` | Session cookie | Validate session |
 | `GET` | `/api/transactions` | Session cookie or X-API-Key | List transactions (paginated) |
 | `GET` | `/api/transactions/summary` | Session cookie or X-API-Key | Spending summary |
@@ -136,4 +136,5 @@ curl -X POST https://finance.yourdomain.com/webhook/sms \
 - **Frontend shows no data:** Verify `VITE_API_URL` and `VITE_API_KEY` are set correctly. Frontend is built at Docker image build time, so rebuild after changing these.
 - **Database errors:** Ensure `./data` directory exists and is writable. Check volume mount in `docker-compose.yml`.
 - **Claude parsing failures:** Check `ANTHROPIC_API_KEY` is valid. Transactions with parse errors are saved as `UNKNOWN` type.
+- **Failed transactions not recorded:** This is expected. SMS containing "failed", "declined", "rejected", "unsuccessful", or "not completed" are automatically skipped.
 - **Port conflicts:** Make sure ports 8000 and 3000 are not in use by other services.
