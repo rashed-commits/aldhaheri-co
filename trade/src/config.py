@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
 
 @dataclass(frozen=True)
@@ -35,9 +35,13 @@ class Config:
         default_factory=lambda: [
             "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA",
             "META", "TSLA", "BRK-B", "JPM", "V",
-            "VOO",
         ]
     )
+
+    # Alpaca uses dots instead of hyphens for some symbols
+    alpaca_symbol_map: Dict = field(default_factory=lambda: {
+        "BRK-B": "BRK.B",
+    })
     start_date: str = "2021-01-01"
     end_date: str = ""  # empty = use today's date (always train on latest data)
 
@@ -54,9 +58,9 @@ class Config:
 
     # --------------------------------------------------------- model training
     test_size: float = 0.2
-    n_estimators: int = 300
-    max_depth: int = 6
-    learning_rate: float = 0.05
+    n_estimators: int = 500
+    max_depth: int = 5
+    learning_rate: float = 0.03
     subsample: float = 0.8
     colsample_bytree: float = 0.8
     random_state: int = 42
@@ -76,7 +80,7 @@ class Config:
     # ------------------------------------------------- ML pipeline tuning
     target_horizon: int = 5              # forward return look-ahead (trading days)
     target_return_threshold: float = 0.01  # min forward return for target=1 (1%)
-    walk_forward_window: int = 504       # ~2 years of trading days
+    walk_forward_window: int = 756       # ~3 years of trading days
     min_feature_importance: float = 0.01 # prune features below this importance
 
     # --------------------------------------------------- Alpaca (from env)

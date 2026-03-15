@@ -174,17 +174,23 @@ def cross_validate(
         X_tr_sc = scaler.fit_transform(X_tr)
         X_val_sc = scaler.transform(X_val)
 
+        # Compute class weight to handle imbalanced targets
+        neg_count = int((y_tr == 0).sum())
+        pos_count = int((y_tr == 1).sum())
+        scale_pos = neg_count / pos_count if pos_count > 0 else 1.0
+
         model = XGBClassifier(
             n_estimators=CFG.n_estimators,
             max_depth=CFG.max_depth,
             learning_rate=CFG.learning_rate,
             subsample=CFG.subsample,
             colsample_bytree=CFG.colsample_bytree,
-
+            scale_pos_weight=scale_pos,
+            early_stopping_rounds=30,
             eval_metric="logloss",
             random_state=CFG.random_state,
         )
-        model.fit(X_tr_sc, y_tr)
+        model.fit(X_tr_sc, y_tr, eval_set=[(X_val_sc, y_val)], verbose=False)
         y_pred = model.predict(X_val_sc)
         y_prob = model.predict_proba(X_val_sc)[:, 1]
 
@@ -214,12 +220,17 @@ def train_final_model(
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
+    neg_count = int((y == 0).sum())
+    pos_count = int((y == 1).sum())
+    scale_pos = neg_count / pos_count if pos_count > 0 else 1.0
+
     model = XGBClassifier(
         n_estimators=CFG.n_estimators,
         max_depth=CFG.max_depth,
         learning_rate=CFG.learning_rate,
         subsample=CFG.subsample,
         colsample_bytree=CFG.colsample_bytree,
+        scale_pos_weight=scale_pos,
         use_label_encoder=False,
         eval_metric="logloss",
         random_state=CFG.random_state,

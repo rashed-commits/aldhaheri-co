@@ -142,10 +142,15 @@ def get_account_details(api) -> dict:
         return {"equity": 100_000.0, "last_equity": 100_000.0, "cash": 100_000.0}
 
 
+def _alpaca_symbol(ticker: str) -> str:
+    """Map yfinance ticker to Alpaca symbol (e.g. BRK-B → BRK.B)."""
+    return CFG.alpaca_symbol_map.get(ticker, ticker)
+
+
 def get_current_price(api, ticker: str) -> Optional[float]:
     """Return the latest trade price for *ticker*, or ``None`` on failure."""
     try:
-        trade = api.get_latest_trade(ticker)
+        trade = api.get_latest_trade(_alpaca_symbol(ticker))
         return float(trade.price)
     except Exception as exc:
         log.warning("Could not fetch price for %s: %s", ticker, exc)
@@ -185,7 +190,7 @@ def close_position(
         return True
     try:
         api.submit_order(
-            symbol=ticker, qty=qty, side="sell",
+            symbol=_alpaca_symbol(ticker), qty=qty, side="sell",
             type="market", time_in_force="day",
         )
         return True
@@ -271,11 +276,16 @@ def compute_order_qty(
     available_cash: float,
     price: float,
     num_signals: int,
+    equity: float = 0.0,
 ) -> int:
-    """Split *available_cash* equally across *num_signals*; return shares for one."""
+    """Split *available_cash* equally across *num_signals*; cap at max_position_size."""
     if price <= 0 or num_signals <= 0:
         return 1
     cash_per_signal = available_cash / num_signals
+    # Enforce max position size (default 10% of portfolio)
+    if equity > 0:
+        max_cash = equity * CFG.max_position_size
+        cash_per_signal = min(cash_per_signal, max_cash)
     return max(1, int(cash_per_signal / price))
 
 
@@ -299,7 +309,7 @@ def submit_buy_order(
         }
     try:
         api.submit_order(
-            symbol=ticker, qty=qty, side="buy",
+            symbol=_alpaca_symbol(ticker), qty=qty, side="buy",
             type="market", time_in_force="day",
         )
         return {
@@ -367,7 +377,7 @@ def process_buy_signals(
         if price is None:
             continue
 
-        qty = compute_order_qty(available_cash, price, len(eligible))
+        qty = compute_order_qty(available_cash, price, len(eligible), equity=equity)
         new_pos = submit_buy_order(api, ticker, qty, price, dry_run=dry_run)
         if new_pos:
             updated.append(new_pos)
