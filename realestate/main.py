@@ -209,62 +209,48 @@ def main():
         return
 
     # ── Full pipeline: Scrape → Score → Report ───────────────────────
-    from data.fetch_listings import run_full_pipeline
+    from storage.db import init_db, upsert_listings, start_run, finish_run
+    from scrapers.propertyfinder import fetch_pf_listings
+    from scrapers.bayut import fetch_bayut_listings
+    import uuid
 
-    if args.pf_only or args.bayut_only:
-        # Single-source scrape
-        from storage.db import init_db, upsert_listings, start_run, finish_run
-        from data.fetch_listings import _generate_run_id
-        from scrapers.propertyfinder import fetch_pf_listings
-        from scrapers.bayut import fetch_bayut_listings
+    init_db()
+    purposes = ["sale", "rent"] if args.purpose == "both" else [args.purpose]
+    total = 0
+    total_new = 0
+    total_updated = 0
 
-        init_db()
-        purposes = ["sale", "rent"] if args.purpose == "both" else [args.purpose]
-        total = 0
+    sources = []
+    if not args.bayut_only:
+        sources.append(("pf", fetch_pf_listings))
+    if not args.pf_only and not args.skip_bayut:
+        sources.append(("bayut", fetch_bayut_listings))
 
-        for purpose in purposes:
-            run_id = _generate_run_id()
-            source = "bayut" if args.bayut_only else "pf"
-            start_run(run_id, f"{source}_{purpose}")
+    for purpose in purposes:
+        for source_name, fetch_fn in sources:
+            run_id = f"{source_name}_{purpose}_{uuid.uuid4().hex[:8]}"
+            start_run(run_id, f"{source_name}_{purpose}")
 
-            if args.bayut_only:
-                listings = fetch_bayut_listings(purpose, LOCATIONS)
-            else:
-                listings = fetch_pf_listings(purpose, LOCATIONS)
+            try:
+                listings = fetch_fn(purpose, LOCATIONS)
+                stats = upsert_listings(listings, run_id)
+                finish_run(run_id, len(listings), stats["new"], stats["updated"], 0)
+                total += len(listings)
+                total_new += stats["new"]
+                total_updated += stats["updated"]
+            except Exception as e:
+                log.error("Scrape failed for %s %s: %s", source_name, purpose, e)
+                finish_run(run_id, 0, 0, 0, 1, status="error")
 
-            stats = upsert_listings(listings, run_id)
-            finish_run(run_id, len(listings), stats["new"], stats["updated"], 0)
-            total += len(listings)
+    if not args.scrape_only:
+        scored = _run_scoring()
+        _run_report(scored)
 
-        if not args.scrape_only:
-            scored = _run_scoring()
-            _run_report(scored)
+    elapsed = time.time() - start
+    log.info("Finished %d listings (%d new, %d updated) in %.1fs", total, total_new, total_updated, elapsed)
 
-        elapsed = time.time() - start
-        log.info("Finished %d listings in %.1fs", total, elapsed)
-
-        from notifications import notify_scrape_complete
-        notify_scrape_complete(total, total, 0, elapsed)
-    else:
-        # Full pipeline
-        summary = run_full_pipeline(skip_bayut=args.skip_bayut)
-
-        if not args.scrape_only:
-            scored = _run_scoring()
-            _run_report(scored)
-            summary["scored"] = len(scored.get("offplan", [])) + len(scored.get("secondary", []))
-
-        elapsed = time.time() - start
-        log.info("All done in %.1fs — summary: %s", elapsed, summary)
-        print(json.dumps(summary, indent=2))
-
-        from notifications import notify_scrape_complete
-        notify_scrape_complete(
-            summary.get("total_fetched", 0),
-            summary.get("new", 0),
-            summary.get("updated", 0),
-            elapsed,
-        )
+    from notifications import notify_scrape_complete
+    notify_scrape_complete(total, total_new, total_updated, elapsed)
 
 
 if __name__ == "__main__":
