@@ -44,6 +44,12 @@ async def receive_sms(
     if len(sms_text) < 10:
         raise HTTPException(status_code=400, detail="SMS text too short to be valid")
 
+    failed_keywords = ["failed", "declined", "rejected", "unsuccessful", "not completed"]
+    sms_lower = sms_text.lower()
+    if any(kw in sms_lower for kw in failed_keywords):
+        logger.info("Skipped failed transaction SMS: %s", sms_text[:80])
+        return {"status": "skipped", "reason": "failed transaction"}
+
     parsed = await parse_sms(sms_text)
 
     txn = Transaction(
