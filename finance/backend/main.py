@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.db import engine
 from backend.models import Base
-from backend.routers import auth, statements, transactions, webhook
+from backend.routers import auth, chat, statements, transactions, webhook
 from backend.routers.transactions import verify_auth
 from backend.notifications import send_statement_reminder, send_unidentified_alert
 from backend.sweep import _sweep_zero_amounts
@@ -57,6 +57,7 @@ app.include_router(auth.router)
 app.include_router(webhook.router)
 app.include_router(transactions.router)
 app.include_router(statements.router)
+app.include_router(chat.router)
 
 
 @app.get("/health")
