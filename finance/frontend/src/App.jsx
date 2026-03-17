@@ -11,6 +11,17 @@ import ProjectNav from "./components/ProjectNav";
 
 const DEFAULT_EXCLUDED = new Set(["Internal Transfers", "Credit Card Payment"]);
 
+const MONTH_NAMES = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const monthLabel = (m) => {
+  // m is "YYYY-MM" format like "2026-01"
+  const parts = m.split("-");
+  if (parts.length === 2) {
+    const idx = parseInt(parts[1], 10) - 1;
+    return MONTH_NAMES[idx] || m;
+  }
+  return m;
+};
+
 function StatCard({ label, value, color }) {
   return (
     <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
@@ -105,7 +116,30 @@ function FinanceSummary({ filtered, transactions, activeCategories, activeAccoun
     // Savings rate
     const savingsRate = filtered.inflow > 0 ? ((filtered.inflow - filtered.outflow) / filtered.inflow) * 100 : 0;
 
-    return { topCat, avgMonthlyOut, avgMonthlyIn, topMerch, savingsRate, monthCount };
+    // Top 3 categories
+    const topCats = Object.entries(catSpend).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+    // Build analysis paragraph
+    const net = filtered.inflow - filtered.outflow;
+    const netWord = net >= 0 ? "surplus" : "deficit";
+    let analysis = `Over the past ${monthCount} month${monthCount > 1 ? "s" : ""}, you earned ${fmt(filtered.inflow)} and spent ${fmt(filtered.outflow)}, leaving a net ${netWord} of ${fmt(Math.abs(net))}.`;
+
+    if (savingsRate > 0) {
+      analysis += ` Your savings rate is ${savingsRate.toFixed(1)}%, meaning you kept ${savingsRate.toFixed(0)} fils of every dirham earned.`;
+    }
+
+    if (topCats.length > 0) {
+      const catList = topCats.map(([name, amt]) => `${name} (${fmt(amt)})`).join(", ");
+      analysis += ` Your top spending categories are ${catList}.`;
+    }
+
+    if (topMerch) {
+      analysis += ` The merchant you spent the most at is ${topMerch[0]} with ${fmt(topMerch[1])} total.`;
+    }
+
+    analysis += ` On average, you spend ${fmt(avgMonthlyOut)} per month and earn ${fmt(avgMonthlyIn)} per month.`;
+
+    return { topCat, avgMonthlyOut, avgMonthlyIn, topMerch, savingsRate, monthCount, analysis };
   }, [filtered, transactions, activeCategories, activeAccounts]);
 
   if (!stats) return null;
@@ -150,6 +184,9 @@ function FinanceSummary({ filtered, transactions, activeCategories, activeAccoun
           </p>
         </div>
       </div>
+      <div className="mt-4 bg-gray-800/30 rounded-lg p-4">
+        <p className="text-sm text-gray-300 leading-relaxed">{stats.analysis}</p>
+      </div>
     </div>
   );
 }
@@ -164,6 +201,8 @@ function Dashboard() {
   const [activeAccounts, setActiveAccounts] = useState(null);
   const [allMonths, setAllMonths] = useState([]);
   const [activeMonths, setActiveMonths] = useState(null);
+  const [allYears, setAllYears] = useState([]);
+  const [activeYears, setActiveYears] = useState(null);
   const [drilldown, setDrilldown] = useState(null);
 
   const loadAllTransactions = useCallback(async () => {
@@ -189,6 +228,7 @@ function Dashboard() {
       const cats = new Set();
       const accts = new Set();
       const mons = new Set();
+      const yrs = new Set();
       for (const r of s.by_category_spend || []) cats.add(r.category);
       for (const r of s.by_category_income || []) cats.add(r.category);
       for (const r of s.by_month || []) cats.add(r.category);
@@ -198,15 +238,20 @@ function Dashboard() {
         if (r.account) accts.add(r.account);
         if (r.date) {
           const parts = r.date.split("/");
-          if (parts.length === 3) mons.add(parts[2] + "-" + parts[0]);
+          if (parts.length === 3) {
+            mons.add(parts[2] + "-" + parts[0]);
+            yrs.add(parts[2]);
+          }
         }
       }
       const sorted = [...cats].sort();
       const sortedAccts = [...accts].sort();
       const sortedMonths = [...mons].sort();
+      const sortedYears = [...yrs].sort();
       setAllCategories(sorted);
       setAllAccounts(sortedAccts);
       setAllMonths(sortedMonths);
+      setAllYears(sortedYears);
       setActiveCategories((prev) => {
         if (prev !== null) return prev;
         const initial = new Set(sorted);
@@ -215,6 +260,7 @@ function Dashboard() {
       });
       setActiveAccounts((prev) => prev !== null ? prev : new Set(sortedAccts));
       setActiveMonths((prev) => prev !== null ? prev : new Set(sortedMonths));
+      setActiveYears((prev) => prev !== null ? prev : new Set(sortedYears));
     } catch (err) {
       console.error("Failed to load data:", err);
     } finally {
@@ -240,19 +286,23 @@ function Dashboard() {
   const toggleCategory = toggle(setActiveCategories);
   const toggleAccount = toggle(setActiveAccounts);
   const toggleMonth = toggle(setActiveMonths);
+  const toggleYear = toggle(setActiveYears);
 
-  // Helper: check if a transaction matches active account + month filters
+  // Helper: check if a transaction matches active account + month + year filters
   const matchesFilters = useCallback((t) => {
     if (activeAccounts && !activeAccounts.has(t.account)) return false;
-    if (activeMonths && t.date) {
+    if (t.date) {
       const parts = t.date.split("/");
       if (parts.length === 3) {
-        const m = parts[2] + "-" + parts[0];
-        if (!activeMonths.has(m)) return false;
+        if (activeYears && !activeYears.has(parts[2])) return false;
+        if (activeMonths) {
+          const m = parts[2] + "-" + parts[0];
+          if (!activeMonths.has(m)) return false;
+        }
       }
     }
     return true;
-  }, [activeAccounts, activeMonths]);
+  }, [activeAccounts, activeMonths, activeYears]);
 
   // Filtered transactions (all three filters)
   const filteredTransactions = useMemo(() => {
@@ -377,14 +427,35 @@ function Dashboard() {
             onNone={() => setActiveAccounts(new Set())}
           />
           <div className="border-t border-gray-800" />
-          <FilterPills
-            label="Filter by Month"
-            items={allMonths}
-            active={activeMonths || new Set()}
-            onToggle={toggleMonth}
-            onAll={() => setActiveMonths(new Set(allMonths))}
-            onNone={() => setActiveMonths(new Set())}
-          />
+          <div className="flex gap-6 flex-wrap">
+            <div className="flex-1 min-w-[200px]">
+              <FilterPills
+                label="Filter by Year"
+                items={allYears}
+                active={activeYears || new Set()}
+                onToggle={toggleYear}
+                onAll={() => setActiveYears(new Set(allYears))}
+                onNone={() => setActiveYears(new Set())}
+              />
+            </div>
+            <div className="flex-[3] min-w-[300px]">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-500">Filter by Month</p>
+                  <div className="flex gap-2">
+                    <button onClick={() => setActiveMonths(new Set(allMonths))} className="text-xs text-blue-400 hover:text-blue-300 transition-colors">All</button>
+                    <span className="text-xs text-gray-700">|</span>
+                    <button onClick={() => setActiveMonths(new Set())} className="text-xs text-blue-400 hover:text-blue-300 transition-colors">None</button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {allMonths.map((m) => (
+                    <TypeToggle key={m} label={monthLabel(m)} active={(activeMonths || new Set()).has(m)} onClick={() => toggleMonth(m)} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

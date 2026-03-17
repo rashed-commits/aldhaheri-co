@@ -63,10 +63,15 @@ async def receive_sms(
 
     parsed = await parse_sms(sms_text)
 
+    # Normalize account names
+    account = parsed.get("account") or ""
+    account_map = {"XXX810002": "810002", "XXX920001": "920001"}
+    account = account_map.get(account, account)
+
     txn = Transaction(
         sms_raw=sms_text,
         transaction_type=parsed.get("transaction_type", "UNKNOWN"),
-        account=parsed.get("account"),
+        account=account,
         amount=parsed.get("amount", 0.0),
         currency=parsed.get("currency", "AED"),
         value_aed=parsed.get("value_aed", 0.0),
