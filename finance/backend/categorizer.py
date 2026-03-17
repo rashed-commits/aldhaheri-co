@@ -9,6 +9,12 @@ import re
 # ---------------------------------------------------------------------------
 
 _KEYWORD_RULES: list[tuple[str, str, str]] = [
+    # ── Cheque Deposit (must be before Internal Transfers — cheque descs contain account holder name) ──
+    ("INHOUSE CHEQUE DEPOSIT", "Cheque Deposit", "Cheque Deposit"),
+    ("PDC CHEQUE DEPOSIT", "Cheque Deposit", "Cheque Deposit"),
+    ("CHEQUE DEPOSIT", "Cheque Deposit", "Cheque Deposit"),
+    ("CHDP", "Cheque Deposit", "Cheque Deposit"),
+
     # ── Internal Transfers (must be before generic Transfer) ──────────
     ("RASHED ALI AHMED HAMAD ALDHAHERI", "Internal Transfer", "Internal Transfers"),
     ("RASHED ALI ALDHAHERI", "Internal Transfer", "Internal Transfers"),
@@ -19,11 +25,7 @@ _KEYWORD_RULES: list[tuple[str, str, str]] = [
     # ── Cash Withdrawal ──────────────────────────────────────────────
     ("ATM WDL", "ATM Withdrawal", "Cash Withdrawal"),
 
-    # ── Cheque Deposit / Payment ──────────────────────────────────────
-    ("CHEQUE DEPOSIT", "Cheque Deposit", "Cheque Deposit"),
-    ("CHDP", "Cheque Deposit", "Cheque Deposit"),
-    ("PDC INHOUSE CHEQUE", "Cheque Deposit", "Cheque Deposit"),
-    ("PDC CHEQUE DEPOSIT", "Cheque Deposit", "Cheque Deposit"),
+    # ── Cheque Payment / Withdrawal ───────────────────────────────────
     ("CHEQUE WITHDRAWAL", "Cheque Withdrawal", "Cheque Deposit"),
     ("I/W CLEARING CHEQUE", "Clearing Cheque", "Cheque Deposit"),
 
