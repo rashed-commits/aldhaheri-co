@@ -34,7 +34,7 @@ _KEYWORD_RULES: list[tuple[str, str, str]] = [
     ("INSTALLMENT RECOVERY", "Loan Installment", "Loan"),
 
     # ── Interest Income ──────────────────────────────────────────────
-    ("PROFIT PAID", "Profit / Interest", "Interest Income"),
+    ("PROFIT PAID", "Profit / Interest", "Interest & Cash Back Earnings"),
 
     # ── Credit Card Payment (CC statement side — inflow) ─────────────
     ("PAYMENT RECEIVED, THANK YOU", "Credit Card Payment", "Credit Card Payment"),
