@@ -11,7 +11,7 @@ from backend.db import engine
 from backend.models import Base
 from backend.routers import auth, statements, transactions, webhook
 from backend.routers.transactions import verify_auth
-from backend.notifications import send_statement_reminder
+from backend.notifications import send_statement_reminder, send_unidentified_alert
 from backend.sweep import _sweep_zero_amounts
 
 load_dotenv()
@@ -29,11 +29,14 @@ async def lifespan(app: FastAPI):
     # Daily sweep at midnight UTC — soft-delete zero-amount transactions
     scheduler.add_job(_sweep_zero_amounts, "cron", hour=0, minute=0, id="sweep_zero")
 
+    # Daily unidentified alert at 10:00 UTC (14:00 UAE) — only fires if count > 0
+    scheduler.add_job(send_unidentified_alert, "cron", hour=10, minute=0, id="unidentified_alert")
+
     # Monthly statement reminder — 1st of each month at 09:00 UTC (13:00 UAE)
     scheduler.add_job(send_statement_reminder, "cron", day=1, hour=9, minute=0, id="stmt_reminder")
 
     scheduler.start()
-    logging.getLogger(__name__).info("Scheduled daily sweep (00:00 UTC) + monthly statement reminder (1st, 09:00 UTC)")
+    logging.getLogger(__name__).info("Scheduled: daily sweep (00:00), unidentified alert (10:00), monthly statement reminder (1st 09:00)")
 
     yield
 

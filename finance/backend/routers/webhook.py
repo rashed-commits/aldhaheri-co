@@ -1,5 +1,6 @@
 import os
 import logging
+import re
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy import select
@@ -68,17 +69,35 @@ async def receive_sms(
     account_map = {"XXX810002": "810002", "XXX920001": "920001"}
     account = account_map.get(account, account)
 
+    # For transfers, extract recipient as merchant
+    merchant = parsed.get("merchant")
+    category = parsed.get("category", "Other")
+    txn_type = parsed.get("transaction_type", "UNKNOWN")
+    if txn_type in ("TRANSFER", "TRANSFER_OUT") and not merchant:
+        m = re.search(r"TRF OUT TO (.+?)(?:\s*$)", sms_text)
+        if m:
+            merchant = m.group(1).strip()
+
+    # Re-categorize via keyword categorizer for better accuracy
+    from backend.categorizer import categorize
+    if merchant or sms_text:
+        cat_merchant, cat_category = categorize(sms_text, parsed.get("flow_type", "Outflow"))
+        if cat_category != "Other":
+            category = cat_category
+            if not merchant:
+                merchant = cat_merchant
+
     txn = Transaction(
         sms_raw=sms_text,
-        transaction_type=parsed.get("transaction_type", "UNKNOWN"),
+        transaction_type=txn_type,
         account=account,
         amount=parsed.get("amount", 0.0),
         currency=parsed.get("currency", "AED"),
         value_aed=parsed.get("value_aed", 0.0),
         date=parsed.get("date"),
         time=parsed.get("time"),
-        merchant=parsed.get("merchant"),
-        category=parsed.get("category", "Other"),
+        merchant=merchant,
+        category=category,
         flow_type=parsed.get("flow_type", "Outflow"),
     )
     db.add(txn)

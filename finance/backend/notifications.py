@@ -46,6 +46,52 @@ async def send_telegram_notification(txn) -> None:
         logger.error("Telegram notification failed: %s", e)
 
 
+async def send_unidentified_alert() -> None:
+    """Daily alert if there are any Unidentified transactions."""
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+
+    try:
+        from backend.db import async_session
+        from backend.models import Transaction
+        from sqlalchemy import select, func
+
+        async with async_session() as db:
+            result = await db.execute(
+                select(func.count(Transaction.id)).where(
+                    Transaction.category == "Unidentified",
+                    Transaction.deleted == False,
+                )
+            )
+            count = result.scalar() or 0
+
+        if count == 0:
+            logger.info("unidentified alert: no unidentified transactions")
+            return
+
+        message = (
+            "\u26a0\ufe0f Unidentified Transactions\n\n"
+            f"You have {count} transaction{'s' if count > 1 else ''} "
+            "categorized as Unidentified that need review.\n\n"
+            f"\U0001f449 {DASHBOARD_URL}\n\n"
+            "\u2014\n"
+            "Automated alert from Naxistant."
+        )
+
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(url, json={
+                "chat_id": TELEGRAM_CHAT_ID,
+                "text": message,
+            })
+            if response.status_code != 200:
+                logger.warning("Telegram API returned %d: %s", response.status_code, response.text)
+            else:
+                logger.info("Unidentified alert sent: %d transactions", count)
+    except Exception as e:
+        logger.error("Unidentified alert failed: %s", e)
+
+
 async def send_statement_reminder() -> None:
     """Monthly reminder to upload bank/card statements for reconciliation."""
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:

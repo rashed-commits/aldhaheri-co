@@ -50,10 +50,26 @@ _KEYWORD_RULES: list[tuple[str, str, str]] = [
     ("MB BILL DR", "Bank Charges", "Bank Charges"),
     ("TRANSFER FEE", "Transfer Fee", "Bank Charges"),
 
-    # ── Transfer (generic — after internal / CC / cheque) ────────────
-    ("MBTRF", "Bank Transfer", "Transfer"),
-    ("TRF OUT TO", "Transfer Out", "Transfer"),
-    ("TRF B/O", "Transfer", "Transfer"),
+    # ── Transfer recipients (specific → category, before generic transfer) ──
+    ("INAYA DOMESTIC WORKERS", "Inaya Domestic Workers", "Maid Expenses"),
+    ("PRESLYN DALAFU RAMOS", "Preslyn Dalafu Ramos", "Maid Expenses"),
+    ("SHIHAB KALLINGAL", "Shihab Kallingal", "Maid Expenses"),
+    ("MKR PLACEMENT", "MKR Placement Agencies", "Maid Expenses"),
+    ("SHABIH UL HASSAN", "Shabih Ul Hassan", "Maid Expenses"),
+    ("ZIA UL HASSAN", "Zia Ul Hassan", "Maid Expenses"),
+    ("MUNA ALDHAHERI", "Muna AlDhaheri", "Allowance"),
+    ("HESSA ALI", "Hessa Ali AlDhaheri", "Charity"),
+    ("JAMALUDEEN", "Jamaludeen Arayalan", "Charity"),
+    ("ABDULLA AHMED SHABEEB", "Abdulla Ahmed Shabeeb", "Family Transfer"),
+    ("MAITHA ALI", "Maitha Ali AlDhaheri", "Family Transfer"),
+    ("SAEED AHMED SHABEEB", "Saeed Ahmed Shabeeb", "Family Transfer"),
+    ("MOHAMMED NAJMAL", "Mohammed Najmal", "Bills"),
+    ("THE STABLES STORAGE", "The Stables Storage", "Car Expenses"),
+
+    # ── Transfer (generic — unidentified by default) ───────────────
+    ("MBTRF", "Bank Transfer", "Unidentified"),
+    ("TRF OUT TO", "Transfer Out", "Unidentified"),
+    ("TRF B/O", "Transfer In", "Unidentified"),
 
     # ── Real Estate ──────────────────────────────────────────────────
     ("PATTATHU", "Rent – Pattathu", "Real Estate"),
