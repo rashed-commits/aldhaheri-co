@@ -44,3 +44,50 @@ async def send_telegram_notification(txn) -> None:
                 logger.warning("Telegram API returned %d: %s", response.status_code, response.text)
     except Exception as e:
         logger.error("Telegram notification failed: %s", e)
+
+
+async def send_statement_reminder() -> None:
+    """Monthly reminder to upload bank/card statements for reconciliation."""
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        logger.warning("statement reminder: Telegram not configured")
+        return
+
+    try:
+        from datetime import datetime
+        prev_month = datetime.utcnow().replace(day=1)
+        # Previous month name
+        import calendar
+        month_idx = prev_month.month - 1 or 12
+        year = prev_month.year if prev_month.month > 1 else prev_month.year - 1
+        month_name = calendar.month_name[month_idx]
+
+        message = (
+            "\U0001f4ca Monthly Statement Reminder\n\n"
+            f"Time to upload your {month_name} {year} bank & card statements "
+            "for reconciliation.\n\n"
+            "Accounts to export from ADIB:\n"
+            "  \u2022 11404538810001 (Card-5747 debit)\n"
+            "  \u2022 11404538810002 (savings)\n"
+            "  \u2022 11404538920001 (rental)\n"
+            "  \u2022 11404538920002 (salary)\n"
+            "  \u2022 Credit Card 5516\n"
+            "  \u2022 Credit Card 0615\n"
+            "  \u2022 Credit Card 4347\n\n"
+            "Upload CSVs to the Statements folder, then run the import.\n\n"
+            f"\U0001f449 {DASHBOARD_URL}\n\n"
+            "\u2014\n"
+            "Automated reminder from Naxistant."
+        )
+
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(url, json={
+                "chat_id": TELEGRAM_CHAT_ID,
+                "text": message,
+            })
+            if response.status_code != 200:
+                logger.warning("Telegram API returned %d: %s", response.status_code, response.text)
+            else:
+                logger.info("Statement reminder sent for %s %d", month_name, year)
+    except Exception as e:
+        logger.error("Statement reminder failed: %s", e)
