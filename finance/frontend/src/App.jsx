@@ -8,6 +8,7 @@ import RecentTransactions from "./components/RecentTransactions";
 import CategoryDrilldown from "./components/CategoryDrilldown";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ProjectNav from "./components/ProjectNav";
+import ChatBot from "./components/ChatBot";
 
 const DEFAULT_EXCLUDED = new Set(["Internal Transfers", "Credit Card Payment"]);
 
@@ -203,6 +204,8 @@ function Dashboard() {
   const [activeMonths, setActiveMonths] = useState(null);
   const [allYears, setAllYears] = useState([]);
   const [activeYears, setActiveYears] = useState(null);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [drilldown, setDrilldown] = useState(null);
 
   const loadAllTransactions = useCallback(async () => {
@@ -288,7 +291,14 @@ function Dashboard() {
   const toggleMonth = toggle(setActiveMonths);
   const toggleYear = toggle(setActiveYears);
 
-  // Helper: check if a transaction matches active account + month + year filters
+  // Helper: parse MM/DD/YYYY to comparable YYYY-MM-DD string
+  const toSortable = (dateStr) => {
+    const p = dateStr.split("/");
+    if (p.length === 3) return `${p[2]}-${p[0].padStart(2,"0")}-${p[1].padStart(2,"0")}`;
+    return dateStr;
+  };
+
+  // Helper: check if a transaction matches active account + month + year + date range filters
   const matchesFilters = useCallback((t) => {
     if (activeAccounts && !activeAccounts.has(t.account)) return false;
     if (t.date) {
@@ -300,9 +310,15 @@ function Dashboard() {
           if (!activeMonths.has(m)) return false;
         }
       }
+      // Date range filter (dateFrom/dateTo are YYYY-MM-DD from input[type=date])
+      if (dateFrom || dateTo) {
+        const sortable = toSortable(t.date);
+        if (dateFrom && sortable < dateFrom) return false;
+        if (dateTo && sortable > dateTo) return false;
+      }
     }
     return true;
-  }, [activeAccounts, activeMonths, activeYears]);
+  }, [activeAccounts, activeMonths, activeYears, dateFrom, dateTo]);
 
   // Filtered transactions (all three filters)
   const filteredTransactions = useMemo(() => {
@@ -456,6 +472,30 @@ function Dashboard() {
               </div>
             </div>
           </div>
+          <div className="border-t border-gray-800" />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-gray-500">Filter by Date Range</p>
+              {(dateFrom || dateTo) && (
+                <button onClick={() => { setDateFrom(""); setDateTo(""); }} className="text-xs text-blue-400 hover:text-blue-300 transition-colors">Clear</button>
+              )}
+            </div>
+            <div className="flex gap-3 items-center">
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-gray-200 text-sm focus:outline-none focus:border-blue-500 [color-scheme:dark]"
+              />
+              <span className="text-gray-600 text-sm">to</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-gray-200 text-sm focus:outline-none focus:border-blue-500 [color-scheme:dark]"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -521,6 +561,8 @@ function Dashboard() {
           onClose={() => setDrilldown(null)}
         />
       )}
+
+      <ChatBot onRefresh={load} />
     </div>
   );
 }

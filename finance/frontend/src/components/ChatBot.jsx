@@ -44,7 +44,7 @@ function renderMessageText(text) {
 function ActionCard({ action, onApprove, onReject }) {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
-  const badgeStyle = ACTION_BADGES[action.action_type] || ACTION_BADGES.Modify;
+  const badgeStyle = ACTION_BADGES[action.type] || ACTION_BADGES.Modify;
 
   async function handleApprove() {
     setLoading(true);
@@ -54,7 +54,7 @@ function ActionCard({ action, onApprove, onReject }) {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          action_type: action.action_type,
+          action_type: action.type,
           payload: action.payload,
         }),
       });
@@ -82,7 +82,7 @@ function ActionCard({ action, onApprove, onReject }) {
     <div className="rounded-lg border border-gray-700 bg-gray-800 p-3 space-y-2">
       <div className="flex items-center gap-2">
         <span className={`rounded px-2 py-0.5 text-xs font-medium border ${badgeStyle}`}>
-          {action.action_type}
+          {action.type}
         </span>
       </div>
       <p className="text-sm text-gray-300">{action.description}</p>
@@ -154,7 +154,7 @@ export default function ChatBot({ onRefresh }) {
         ...prev,
         {
           role: 'assistant',
-          content: data.message,
+          content: data.response,
           actions: data.actions || null,
         },
       ]);
