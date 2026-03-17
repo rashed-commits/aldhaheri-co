@@ -30,7 +30,7 @@ _KEYWORD_RULES: list[tuple[str, str, str]] = [
     ("I/W CLEARING CHEQUE", "Clearing Cheque", "Cheque Deposit"),
 
     # ── Salary & Allowances ──────────────────────────────────────────
-    ("/REF/ALLOWANCE", "Allowance", "Allowance & Salaries"),
+    ("/REF/ALLOWANCE", "Allowance", "Allowance"),
 
     # ── Loan ─────────────────────────────────────────────────────────
     ("INSTALLMENT RECOVERY", "Loan Installment", "Loan"),
@@ -249,10 +249,12 @@ _KEYWORD_RULES: list[tuple[str, str, str]] = [
     ("SHARAF DG", "Sharaf DG", "Electronics"),
     ("EMAX", "Emax", "Electronics"),
 
-    # ── Car Expenses & Fuel ──────────────────────────────────────────
-    ("ADNOC", "ADNOC", "Car Expenses & Fuel"),
-    ("PREMIER MOTORS LLC", "Premier Motors", "Car Expenses & Fuel"),
-    ("LIBERTY TYRE", "Liberty Tyre Center", "Car Expenses & Fuel"),
+    # ── Fuel Expenses ──────────────────────────────────────────────
+    ("ADNOC", "ADNOC", "Fuel Expenses"),
+
+    # ── Car Expenses ──────────────────────────────────────────────
+    ("PREMIER MOTORS LLC", "Premier Motors", "Car Expenses"),
+    ("LIBERTY TYRE", "Liberty Tyre Center", "Car Expenses"),
 
     # ── Additional Healthcare ──────────────────────────────────────
     ("DOCTOR SHERIF", "Doctor Sherif Mattar", "Healthcare"),
@@ -264,11 +266,13 @@ _KEYWORD_RULES: list[tuple[str, str, str]] = [
     ("ADDC", "ADDC", "Bills"),
     ("ETISALAT", "Etisalat", "Bills"),
 
+    # ── Traffic Fines & Fees ───────────────────────────────────────
+    ("MINISTRY O", "Ministry", "Traffic Fines & Fees"),
+    ("ABU DHABI POLICE", "Abu Dhabi Police", "Traffic Fines & Fees"),
+    ("SAAED FOR", "Saaed", "Traffic Fines & Fees"),
+
     # ── Government ───────────────────────────────────────────────────
-    ("MINISTRY O", "Ministry", "Government"),
     ("TAMM", "TAMM", "Government"),
-    ("ABU DHABI POLICE", "Abu Dhabi Police", "Government"),
-    ("SAAED FOR", "Saaed", "Government"),
     ("DUBAIPAY", "DubaiPay", "Government"),
 
     # ── Healthcare ───────────────────────────────────────────────────
@@ -279,8 +283,8 @@ _KEYWORD_RULES: list[tuple[str, str, str]] = [
     ("SERENITY H", "Serenity Health", "Healthcare"),
     ("NEW PHARMACY", "New Pharmacy", "Healthcare"),
 
-    # ── Armed Forces ─────────────────────────────────────────────────
-    ("ARMED FORC", "Armed Forces", "Armed Forces"),
+    # ── Armed Forces (cafeteria / dining) ─────────────────────────────
+    ("ARMED FORC", "Armed Forces", "Food & Dining"),
 
     # ── Hotels & Accommodation ───────────────────────────────────────
     ("DESERT ISLAND RESORT", "Desert Island Resort", "Hotels & Accommodation"),
@@ -380,7 +384,7 @@ _KEYWORD_RULES: list[tuple[str, str, str]] = [
     ("SAFARI PLAZA", "Safari Plaza Restaurant", "Food & Dining"),
     ("CALO", "Calo", "Food & Dining"),
     ("FAT*EMIRATES", "Emirates (FAT)", "Travel"),
-    ("EMIRATE OF ABU DHABI FINANCE", "Abu Dhabi Finance Dept", "Allowance & Salaries"),
+    ("EMIRATE OF ABU DHABI FINANCE", "Abu Dhabi Finance Dept", "Allowance"),
     ("SAEED ALI ALDHAHERI", "Saeed Ali AlDhaheri", "Transfer"),
     ("CDM-CASH DEPOSIT", "Cash Deposit", "Cheque Deposit"),
     ("GOOGLE ALARMY", "Alarmy", "Software & Subscriptions"),
@@ -469,7 +473,7 @@ def categorize(description: str, flow_type: str) -> tuple[str, str]:
 
     # Exact salary match (inflow only)
     if upper.strip() == "SALARY" and flow_type == "Inflow":
-        return ("Salary", "Allowance & Salaries")
+        return ("Salary", "Salary")
 
     # Keyword scan — check both cleaned and raw description (first match wins)
     for keyword, merchant, category in _COMPILED_RULES:
