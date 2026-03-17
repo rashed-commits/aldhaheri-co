@@ -2,6 +2,7 @@
 
 import csv
 import io
+import re
 from pathlib import Path
 
 ACCOUNT_MAP: dict[str, str] = {
@@ -142,11 +143,26 @@ def parse_cc_csv(filepath: str) -> list[dict]:
     reader = csv.DictReader(io.StringIO("\n".join(data_lines)))
     transactions: list[dict] = []
 
+    # Detect card number from card header rows
+    card_account = "Card-5516"  # default
     for row in reader:
         description = row.get("Description", "").strip().strip('"')
 
-        # Skip card header rows
-        if not description or description.startswith("Primary Card Number:"):
+        # Extract card number from header rows and skip them
+        if not description:
+            continue
+        txn_date_field = (row.get("Transaction Date") or "").strip().strip('"')
+        if "Card Number:" in txn_date_field:
+            # CSV splits "Primary Card Number:4455XXXXXXXX0615-Islamic Emirati"
+            # into the Transaction Date column
+            match = re.search(r"XXXX(\d{4})", txn_date_field)
+            if match:
+                card_account = f"Card-{match.group(1)}"
+            continue
+        if "Card Number:" in description:
+            match = re.search(r"XXXX(\d{4})", description)
+            if match:
+                card_account = f"Card-{match.group(1)}"
             continue
 
         if _should_skip(description):
@@ -162,7 +178,7 @@ def parse_cc_csv(filepath: str) -> list[dict]:
         raw_date = (row.get("Transaction Date") or "").strip().strip('"')
 
         transactions.append({
-            "account": "Card-5516",
+            "account": card_account,
             "date": _convert_date(raw_date),
             "amount": amount,
             "flow_type": flow_type,
