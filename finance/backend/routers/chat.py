@@ -198,40 +198,36 @@ async def _build_context(db: AsyncSession, user_message: str) -> str:
         for t in recent_rows
     ]
 
-    # Targeted search if the user mentions a merchant, category, or amount
+    # ── Targeted search: extract keywords and match against categories/merchants ──
     targeted_results: list[dict] = []
     msg_lower = user_message.lower()
 
-    # Search by merchant name (partial match)
-    merchant_stmt = (
-        select(Transaction)
-        .where(base, func.lower(Transaction.merchant).contains(msg_lower))
-        .order_by(Transaction.id.desc())
-        .limit(10)
-    )
-    merchant_result = await db.execute(merchant_stmt)
-    merchant_rows = merchant_result.scalars().all()
-    if merchant_rows:
-        targeted_results.extend(
-            {
-                "id": t.id, "date": t.date, "account": t.account,
-                "amount": t.value_aed, "merchant": t.merchant,
-                "category": t.category, "flow_type": t.flow_type,
-                "match": "merchant",
-            }
-            for t in merchant_rows
-        )
+    # Extract individual words (3+ chars) as search keywords
+    keywords = [w for w in re.findall(r"[a-z]+", msg_lower) if len(w) >= 3]
 
-    # Search by category (partial match)
-    cat_search_stmt = (
-        select(Transaction)
-        .where(base, func.lower(Transaction.category).contains(msg_lower))
-        .order_by(Transaction.id.desc())
-        .limit(10)
+    # Get all distinct categories for matching
+    all_cats_result = await db.execute(
+        select(Transaction.category).where(base).group_by(Transaction.category)
     )
-    cat_search_result = await db.execute(cat_search_stmt)
-    cat_search_rows = cat_search_result.scalars().all()
-    if cat_search_rows:
+    all_categories = [r[0] for r in all_cats_result.all() if r[0]]
+
+    # Match categories by keyword overlap
+    matched_categories = []
+    for cat in all_categories:
+        cat_lower = cat.lower()
+        if any(kw in cat_lower for kw in keywords):
+            matched_categories.append(cat)
+
+    # Pull ALL transactions for matched categories (not just 10)
+    if matched_categories:
+        cat_search_stmt = (
+            select(Transaction)
+            .where(base, Transaction.category.in_(matched_categories))
+            .order_by(Transaction.date.desc())
+            .limit(100)
+        )
+        cat_search_result = await db.execute(cat_search_stmt)
+        cat_search_rows = cat_search_result.scalars().all()
         targeted_results.extend(
             {
                 "id": t.id, "date": t.date, "account": t.account,
@@ -241,6 +237,30 @@ async def _build_context(db: AsyncSession, user_message: str) -> str:
             }
             for t in cat_search_rows
         )
+
+    # Search by merchant name (keyword match, up to 50)
+    for kw in keywords:
+        if len(kw) < 4:
+            continue
+        merchant_stmt = (
+            select(Transaction)
+            .where(base, func.lower(Transaction.merchant).contains(kw))
+            .order_by(Transaction.id.desc())
+            .limit(50)
+        )
+        merchant_result = await db.execute(merchant_stmt)
+        merchant_rows = merchant_result.scalars().all()
+        if merchant_rows:
+            targeted_results.extend(
+                {
+                    "id": t.id, "date": t.date, "account": t.account,
+                    "amount": t.value_aed, "merchant": t.merchant,
+                    "category": t.category, "flow_type": t.flow_type,
+                    "match": "merchant",
+                }
+                for t in merchant_rows
+            )
+            break  # first keyword match is enough
 
     # Search by amount if the message contains a number
     amount_matches = re.findall(r"[\d,]+\.?\d*", user_message.replace(",", ""))
@@ -252,7 +272,7 @@ async def _build_context(db: AsyncSession, user_message: str) -> str:
                     select(Transaction)
                     .where(base, Transaction.value_aed == amt)
                     .order_by(Transaction.id.desc())
-                    .limit(5)
+                    .limit(10)
                 )
                 amt_result = await db.execute(amt_stmt)
                 amt_rows = amt_result.scalars().all()
