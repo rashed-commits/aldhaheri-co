@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.db import engine
 from backend.models import Base
-from backend.routers import auth, transactions, webhook
+from backend.routers import auth, statements, transactions, webhook
 from backend.routers.transactions import verify_auth
 from backend.sweep import _sweep_zero_amounts
 
@@ -48,6 +48,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(webhook.router)
 app.include_router(transactions.router)
+app.include_router(statements.router)
 
 
 @app.get("/health")

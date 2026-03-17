@@ -14,8 +14,8 @@ ACCOUNT_MAP: dict[str, str] = {
 SKIP_DESCRIPTIONS: set[str] = {
     "FOREIGN TRANSACTION FEE",
     "VAT ON FOREIGN TRANSACTIO",
-    "AED TRF Within UAE Charges",
-    "PDC Lodgement Charge",
+    "AED TRF WITHIN UAE CHARGES",
+    "PDC LODGEMENT CHARGE",
     "CASH ADVANCE FEE",
     "VAT ON CASH ADVANCE FEE",
     "FINANCE CHARGES",

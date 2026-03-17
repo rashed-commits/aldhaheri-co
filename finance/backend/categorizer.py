@@ -19,10 +19,13 @@ _KEYWORD_RULES: list[tuple[str, str, str]] = [
     # ── Cash Withdrawal ──────────────────────────────────────────────
     ("ATM WDL", "ATM Withdrawal", "Cash Withdrawal"),
 
-    # ── Cheque Deposit ───────────────────────────────────────────────
+    # ── Cheque Deposit / Payment ──────────────────────────────────────
     ("CHEQUE DEPOSIT", "Cheque Deposit", "Cheque Deposit"),
     ("CHDP", "Cheque Deposit", "Cheque Deposit"),
     ("PDC INHOUSE CHEQUE", "Cheque Deposit", "Cheque Deposit"),
+    ("PDC CHEQUE DEPOSIT", "Cheque Deposit", "Cheque Deposit"),
+    ("CHEQUE WITHDRAWAL", "Cheque Withdrawal", "Cheque Deposit"),
+    ("I/W CLEARING CHEQUE", "Clearing Cheque", "Cheque Deposit"),
 
     # ── Salary & Allowances ──────────────────────────────────────────
     ("/REF/ALLOWANCE", "Allowance", "Allowance & Salaries"),
@@ -60,6 +63,14 @@ _KEYWORD_RULES: list[tuple[str, str, str]] = [
     ("ADCOOPS", "AD Co-Ops", "Groceries"),
 
     # ── Food & Dining ────────────────────────────────────────────────
+    ("ALL DAY MA", "All Day Market", "Food & Dining"),
+    ("AL EQABIA", "Al Eqabia", "Food & Dining"),
+    ("ZOI CA", "Zoi Cafe", "Food & Dining"),
+    ("NAKHAT TAH", "Nakhat Tahi", "Food & Dining"),
+    ("SAVE OUR S", "Save Our Souls", "Food & Dining"),
+    ("AL HABARA", "Al Habara Cafeteria", "Food & Dining"),
+    ("SNACKAT", "Snackat Cafe", "Food & Dining"),
+    ("DIN TAI FUNG", "Din Tai Fung", "Food & Dining"),
     ("TALABAT", "Talabat", "Food & Dining"),
     ("DELIVEROO", "Deliveroo", "Food & Dining"),
     ("STARBUCKS", "Starbucks", "Food & Dining"),
@@ -94,6 +105,23 @@ _KEYWORD_RULES: list[tuple[str, str, str]] = [
     ("WAITROSE", "Waitrose", "Food & Dining"),
 
     # ── Shopping ──────────────────────────────────────────────────────
+    ("MAMO*BLOOM", "Bloom", "Shopping"),
+    ("SP SHOP SR", "SP Shop SRAM", "Shopping"),
+    ("SP IM8 HEA", "SP IM8 Health", "Shopping"),
+    ("SP STAY FI", "SP Stay Fit", "Shopping"),
+    ("SP BRICK L", "SP Brick L", "Shopping"),
+    ("SP BLOOM I", "SP Bloom", "Shopping"),
+    ("SP SENARAH", "Senarah", "Shopping"),
+    ("MUMUSO", "Mumuso", "Shopping"),
+    ("WEAR MART", "Wear Mart", "Shopping"),
+    ("AL TELAL", "Al Telal Gents Fashion", "Shopping"),
+    ("KOALAPICKS", "KoalaPicks", "Shopping"),
+    ("UPCO JUNIOR", "Upco Junior", "Shopping"),
+    ("FLYING TIGER", "Flying Tiger", "Shopping"),
+    ("FLOWERLAB", "FlowerLab", "Shopping"),
+    ("BRIGHT WAY", "Bright Way Trading", "Shopping"),
+    ("BIN HAMOODAH", "Bin Hamoodah", "Shopping"),
+    ("HARD ARISE", "Hard Arise Electric", "Shopping"),
     ("AMAZON.AE", "Amazon.ae", "Shopping"),
     ("AMAZON RETAIL", "Amazon", "Shopping"),
     ("AMAZON NOW", "Amazon Now", "Shopping"),
@@ -126,8 +154,12 @@ _KEYWORD_RULES: list[tuple[str, str, str]] = [
     ("SRT CAR PA", "SRT Parking", "Transport"),
 
     # ── Software & Subscriptions ─────────────────────────────────────
+    ("PADDLE.NET", "Paddle.net", "Software & Subscriptions"),
+    ("GOOGLE*GOOGLE ONE", "Google One", "Software & Subscriptions"),
+    ("WWW.PERPLEXITY", "Perplexity AI", "Software & Subscriptions"),
     ("CHATMIST", "ChatMist", "Software & Subscriptions"),
     ("CLAUDE.AI", "Claude AI", "Software & Subscriptions"),
+    ("CLAUDE AI", "Claude AI", "Software & Subscriptions"),
     ("ANTHROPIC", "Anthropic", "Software & Subscriptions"),
     ("OPENAI", "OpenAI", "Software & Subscriptions"),
     ("GOOGLE ONE", "Google One", "Software & Subscriptions"),
@@ -237,6 +269,84 @@ _KEYWORD_RULES: list[tuple[str, str, str]] = [
     ("VOX MARYAH", "VOX Cinemas", "Entertainment"),
     ("GLOBAL VIL", "Global Village", "Entertainment"),
     ("WWW INSTAS", "InstaSnap", "Entertainment"),
+    ("EMIRATES NATURE", "Emirates Nature", "Entertainment"),
+
+    # ── Education ───────────────────────────────────────────────────
+    ("BATEEN WOR", "Bateen World Academy", "Education"),
+    ("LEADRIGHT", "LeadRight", "Education"),
+    ("UDEMY", "Udemy", "Education"),
+    ("REDWOOD NUSERY", "Redwood Nursery", "Education"),
+
+    # ── Traffic Penalties and Service Fees ──────────────────────────
+    ("TRAFFIC PENALTIES", "Traffic Penalty", "Traffic Penalties and Service Fees"),
+
+    # ── Miscellaneous catch-alls ────────────────────────────────────
+    ("CAUBADE", "Caubade Phone", "Electronics"),
+    ("EASYTIP", "EasyTip", "Food & Dining"),
+    ("WOLFIS", "Wolfi's Bike Shop", "Shopping"),
+    ("MRCR MOBILE", "MRCR Mobile Pay", "Other"),
+    ("MARKS&SPENCER", "M&S", "Shopping"),
+    ("AL FUTTAIM", "Al Futtaim", "Shopping"),
+    ("ABU DHABI ISLAMIC BAN", "ADIB ATM", "Cash Withdrawal"),
+    ("HSBC BANK MIDDLE", "HSBC ATM", "Cash Withdrawal"),
+    ("LE TABAC", "Le Tabac Exclusivo", "Shopping"),
+    ("FEDEX", "FedEx", "Shopping"),
+    ("PMB*BREWIN", "Brewing Gadget", "Food & Dining"),
+    ("LULUHYPERMARKET", "Lulu Hypermarket", "Groceries"),
+    ("LULU HYPERMARKET", "Lulu Hypermarket", "Groceries"),
+    ("GRAND EMIRATES MARKE", "Grand Emirates Market", "Groceries"),
+    ("AL HABARA", "Al Habara", "Food & Dining"),
+    ("FOOD TO GO", "Food To Go", "Food & Dining"),
+    ("KISMATH", "Kismath Restaurant", "Food & Dining"),
+    ("BEANZ GENERAL", "Beanz General Trading", "Food & Dining"),
+    ("MAGIC BOARD", "Magic Board", "Shopping"),
+    ("SAFA EXPRESS", "Safa Express", "Groceries"),
+    ("ABU DHABI  ABU DHABI", "Abu Dhabi Mall", "Entertainment"),
+    ("ABU DHABI  ABUDHABI", "Abu Dhabi Mall", "Entertainment"),
+    ("BRAG TWO F", "Brag Two F", "Food & Dining"),
+    ("MADHAQ ALK", "Madhaq Alkheir", "Food & Dining"),
+    ("POS*LULUWA", "Luluwa", "Food & Dining"),
+    ("DUNES SPEC", "Dunes Special", "Shopping"),
+    ("TEMU COM", "Temu", "Shopping"),
+    ("AMAZON MKTPL", "Amazon Marketplace", "Shopping"),
+    ("CALO", "Calo", "Food & Dining"),
+    ("FAT*EMIRATES", "Emirates (FAT)", "Travel"),
+    ("EMIRATE OF ABU DHABI FINANCE", "Abu Dhabi Finance Dept", "Allowance & Salaries"),
+    ("SAEED ALI ALDHAHERI", "Saeed Ali AlDhaheri", "Transfer"),
+    ("CDM-CASH DEPOSIT", "Cash Deposit", "Cheque Deposit"),
+    ("GOOGLE ALARMY", "Alarmy", "Software & Subscriptions"),
+    ("GOOGLE WATER TRACKER", "Water Tracker", "Software & Subscriptions"),
+    ("GOOGLE WORKSPACE", "Google Workspace", "Software & Subscriptions"),
+    ("EMIRATES62", "Emirates Airline", "Travel"),
+    ("STA AL SHA", "STA Al Sha", "Food & Dining"),
+    ("J555 STARB", "Starbucks", "Food & Dining"),
+    ("RUKN  AL A", "Rukn Al Ain", "Food & Dining"),
+    ("AL FAIR AL", "Al Fair", "Groceries"),
+    ("M H  ALSHA", "MH Al Sha", "Shopping"),
+    ("ADIB HEAD", "ADIB", "Bank Charges"),
+    ("YUBI HANDR", "Yubi Handraft", "Shopping"),
+    ("YANN COUVR", "Yann Couvreur", "Food & Dining"),
+    ("THE VALET", "The Valet", "Food & Dining"),
+    ("TEN ELEVEN", "Ten Eleven", "Food & Dining"),
+    ("FIRST CLAS", "First Class", "Food & Dining"),
+    ("SHAY WAZAB", "Shay Wazab", "Food & Dining"),
+    ("AMAZON RET", "Amazon", "Shopping"),
+    ("AMAZON AE", "Amazon.ae", "Shopping"),
+    ("SP SQUIDHA", "SquidHash", "Software & Subscriptions"),
+    ("HOUSE OF TEA", "House of Tea", "Food & Dining"),
+    ("WWW.AROMATIERRA", "Aromatierra", "Beauty & Personal Care"),
+    ("MUNA ALDHAHERI", "Muna AlDhaheri", "Transfer"),
+    ("MAITHA ALI", "Maitha Ali", "Transfer"),
+    ("HESSA ALI", "Hessa Ali AlDhaheri", "Transfer"),
+    ("JAMALUDEEN", "Jamaludeen", "Transfer"),
+    ("ABDULLA AHMED", "Abdulla Ahmed", "Transfer"),
+    ("SHIHAB KALLINGAL", "Shihab Kallingal", "Maid Expenses"),
+    ("MOHAMMED NAJMAL", "Mohammed Najmal", "Transfer"),
+    ("THE STABLES STORAGE", "The Stables Storage", "Other"),
+    ("MKR PLACEMENT", "MKR Placement", "Transfer"),
+    ("ZIA UL HASSAN", "Zia Ul Hassan", "Transfer"),
+    ("SHABIH UL HASSAN", "Shabih Ul Hassan", "Transfer"),
+    ("SAEED AHMED SHABEEB", "Saeed Ahmed Shabeeb", "Transfer"),
 
     # ── Maid Expenses ────────────────────────────────────────────────
     ("INAYA DOMESTIC WORKERS", "Inaya Domestic Workers", "Maid Expenses"),
@@ -285,15 +395,16 @@ def categorize(description: str, flow_type: str) -> tuple[str, str]:
         A tuple of (cleaned merchant name, category string).
     """
     cleaned = _clean_description(description)
+    raw_upper = description.upper()
     upper = cleaned.upper()
 
     # Exact salary match (inflow only)
     if upper.strip() == "SALARY" and flow_type == "Inflow":
         return ("Salary", "Allowance & Salaries")
 
-    # Keyword scan — first match wins
+    # Keyword scan — check both cleaned and raw description (first match wins)
     for keyword, merchant, category in _COMPILED_RULES:
-        if keyword in upper:
+        if keyword in upper or keyword in raw_upper:
             return (merchant, category)
 
     return (cleaned, "Other")

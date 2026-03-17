@@ -6,6 +6,7 @@ services:
       - "8001:8000"
     volumes:
       - finance-data:/data
+      - finance-statements:/data/statements
     env_file:
       - ../.env
     restart: unless-stopped
@@ -50,3 +51,4 @@ services:
 
 volumes:
   finance-data:
+  finance-statements:
