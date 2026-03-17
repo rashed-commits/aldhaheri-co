@@ -18,7 +18,7 @@ function Dashboard() {
       try {
         const [statsData, listingsData, areasData] = await Promise.all([
           api('/api/stats'),
-          api('/api/listings?purpose=sale&limit=50'),
+          api('/api/listings?purpose=sale&limit=1000'),
           api('/api/areas?purpose=sale'),
         ])
         if (!statsData || !listingsData || !areasData) return

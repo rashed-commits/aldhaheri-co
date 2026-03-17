@@ -38,7 +38,7 @@ def list_listings(
     purpose: Optional[str] = Query(None, description="Filter by purpose (sale, rent)"),
     property_type: Optional[str] = Query(None, description="Filter by property_type"),
     min_score: Optional[float] = Query(None, description="Minimum opportunity score (not stored — use /api/listings with scoring)"),
-    limit: int = Query(50, ge=1, le=500),
+    limit: int = Query(50, ge=1, le=1000),
     offset: int = Query(0, ge=0),
 ):
     """List listings with optional filters. Returns active listings sorted by price descending."""
