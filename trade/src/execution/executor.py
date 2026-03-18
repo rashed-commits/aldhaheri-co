@@ -79,6 +79,66 @@ def save_positions(positions: List[Position], positions_path: Path) -> None:
     log.info("Saved %d open positions to %s", len(positions), positions_path)
 
 
+def reconcile_positions(
+    api,
+    local_positions: List[Position],
+) -> List[Position]:
+    """Sync local positions against Alpaca's actual positions.
+
+    Removes local positions not in Alpaca (closed externally),
+    adds Alpaca positions missing locally (bought externally),
+    and updates qty if it differs.
+    """
+    try:
+        alpaca_positions = api.list_positions()
+    except Exception as exc:
+        log.warning("Could not fetch Alpaca positions for reconciliation: %s — skipping.", exc)
+        return local_positions
+
+    # Reverse symbol map: Alpaca symbol -> yfinance ticker
+    reverse_map = {v: k for k, v in CFG.alpaca_symbol_map.items()}
+    alpaca_by_ticker: Dict[str, Any] = {}
+    for p in alpaca_positions:
+        ticker = reverse_map.get(p.symbol, p.symbol)
+        alpaca_by_ticker[ticker] = p
+
+    local_by_ticker = {p["ticker"]: p for p in local_positions}
+    reconciled: List[Position] = []
+
+    # Keep/update local positions that still exist in Alpaca
+    for pos in local_positions:
+        ticker = pos["ticker"]
+        if ticker not in alpaca_by_ticker:
+            log.info("RECONCILE: removed %s (not in Alpaca — closed externally).", ticker)
+            continue
+        alpaca_pos = alpaca_by_ticker[ticker]
+        alpaca_qty = int(float(alpaca_pos.qty))
+        local_qty = int(pos["qty"])
+        if alpaca_qty != local_qty:
+            log.info("RECONCILE: updated %s qty %d -> %d.", ticker, local_qty, alpaca_qty)
+            pos["qty"] = alpaca_qty
+        reconciled.append(pos)
+
+    # Add Alpaca positions missing from local file
+    for ticker, alpaca_pos in alpaca_by_ticker.items():
+        if ticker not in local_by_ticker:
+            new_pos = {
+                "ticker": ticker,
+                "qty": int(float(alpaca_pos.qty)),
+                "entry_price": round(float(alpaca_pos.avg_entry_price), 4),
+                "entry_date": date.today().isoformat(),
+            }
+            log.info("RECONCILE: added %s x%d @ $%.2f (bought externally).", ticker, new_pos["qty"], new_pos["entry_price"])
+            reconciled.append(new_pos)
+
+    if len(reconciled) != len(local_positions):
+        log.info("RECONCILE: positions changed %d -> %d.", len(local_positions), len(reconciled))
+    else:
+        log.info("RECONCILE: positions in sync (%d).", len(reconciled))
+
+    return reconciled
+
+
 # ---------------------------------------------------------------------------
 # Inception tracking (for overall P&L)
 # ---------------------------------------------------------------------------
@@ -576,6 +636,10 @@ def run(dry_run: bool = False) -> None:
     positions_path = CFG.output_dir / "open_positions.json"
     positions = load_positions(positions_path)
     log.info("Loaded %d positions.", len(positions))
+
+    # 4b. Reconcile local positions against Alpaca
+    if not dry_run:
+        positions = reconcile_positions(api, positions)
 
     # 5. Stop-loss / take-profit (always runs, even during halt)
     if positions:

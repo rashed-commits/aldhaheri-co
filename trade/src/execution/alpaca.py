@@ -66,6 +66,10 @@ class AlpacaAPI:
         except Exception:
             return None
 
+    def list_positions(self) -> list:
+        """Return all open positions from Alpaca."""
+        return self._trading.get_all_positions()
+
     def has_pending_order(self, symbol: str) -> bool:
         """Return ``True`` if there is an open/pending order for *symbol*."""
         try:
