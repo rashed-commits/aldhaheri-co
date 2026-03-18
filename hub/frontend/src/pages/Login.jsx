@@ -54,7 +54,7 @@ export default function Login() {
       window.location.href = '/dashboard'
     } catch (err) {
       if (err.message.includes('429') || err.message.includes('locked') || err.message.includes('Too many')) {
-        setLockoutUntil(new Date(Date.now() + 60000).toISOString())
+        setLockoutUntil(new Date(Date.now() + 1800000).toISOString())
         setError('Too many login attempts. Please wait.')
       } else {
         setError(err.message || 'Login failed. Please try again.')
@@ -99,9 +99,12 @@ export default function Login() {
         <h1 className="text-2xl font-bold text-center mb-2" style={{ color: '#F1F5F9' }}>
           aldhaheri.co
         </h1>
-        <p className="text-center mb-8" style={{ color: '#94A3B8' }}>
-          {isSetup ? 'Set up your account' : 'Sign in to your command center'}
-        </p>
+        {isSetup && (
+          <p className="text-center mb-8" style={{ color: '#94A3B8' }}>
+            Set up your account
+          </p>
+        )}
+        {!isSetup && <div className="mb-8" />}
 
         {/* Passkey registration prompt after setup login */}
         {registeringPasskey && (

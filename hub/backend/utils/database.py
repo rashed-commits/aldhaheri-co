@@ -75,4 +75,9 @@ def init_db():
                 first_attempt TEXT NOT NULL,
                 locked_until TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS password_store (
+                username TEXT PRIMARY KEY,
+                password_hash BLOB NOT NULL
+            );
         """)

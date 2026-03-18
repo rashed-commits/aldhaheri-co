@@ -2,9 +2,9 @@ from datetime import datetime, timedelta, timezone
 
 from utils.database import get_db
 
-MAX_ATTEMPTS = 5
+MAX_ATTEMPTS = 3
 ATTEMPT_WINDOW = timedelta(minutes=5)
-LOCKOUT_DURATION = timedelta(minutes=15)
+LOCKOUT_DURATION = timedelta(minutes=30)
 
 
 def check_rate_limit(ip: str) -> bool:

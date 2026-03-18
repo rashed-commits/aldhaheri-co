@@ -1,3 +1,4 @@
+import asyncio
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -36,6 +37,7 @@ async def login(body: LoginRequest, request: Request, response: Response):
 
     if not verify_password(body.username, body.password):
         record_attempt(client_ip)
+        await asyncio.sleep(2)  # Deliberate delay to slow brute-force attacks
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     clear_attempts(client_ip)
