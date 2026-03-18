@@ -137,6 +137,14 @@ ssh root@165.232.162.72 "cd /opt/aldhaheri-co && docker compose ps"
 - All frontends auto-redirect to `https://aldhaheri.co` on 401 (see each project's `api.js`)
 - No `?token=` URL parameter — cookie-only auth
 
+### Hub Login Flow (multi-method)
+1. **WebAuthn/Passkey** (primary) — passwordless via `hub/backend/routers/webauthn.py`
+2. **Password + TOTP** — if TOTP is enabled, password returns a `totp_pending` token; user must then verify a 6-digit code from Microsoft Authenticator
+3. **Password only** — fallback when TOTP is not enabled
+- TOTP setup/verify/disable endpoints in `hub/backend/routers/totp.py` (uses `pyotp` + `qrcode`)
+- TOTP secrets stored in `totp_secrets` table in hub's auth SQLite DB
+- Frontend settings page (`hub/frontend/src/pages/Settings.jsx`) provides QR code setup UI
+
 ### Thin routes + service logic
 - Routes in `/routers/` handle validation and HTTP concerns only
 - Business logic lives in service files (`parser.py`, `notifications.py`, `session_store.py`)
@@ -200,6 +208,7 @@ JWT_SECRET              — SSO signing secret (ALL services)
 HUB_USERNAME            — Login username
 HUB_PASSWORD            — Login password
 VITE_API_URL            — Hub frontend API base URL
+AUTH_DB_PATH            — Hub auth SQLite path (default: /data/auth.db)
 
 # Finance
 ANTHROPIC_API_KEY       — Claude API for SMS parsing + chatbot
@@ -245,6 +254,7 @@ ALPACA_BASE_URL         — Alpaca API endpoint
 - Database migrations need explicit planning (SQLite, no auto-migrate)
 - Backups at `/opt/backups/` on VPS — verify before destructive operations
 - Finance SMS parser prompt changes require careful testing — wrong parsing silently corrupts data
+- TOTP secret storage (`totp_secrets` table) — if corrupted, users get locked out of 2FA
 
 ## 14. VPS Details
 - **IP**: 165.232.162.72
