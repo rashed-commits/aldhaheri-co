@@ -22,6 +22,20 @@ export async function loginWithPassword(username, password) {
   return res.json()
 }
 
+export async function loginWithTotp(totpToken, code) {
+  const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/auth/login/totp`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ totp_token: totpToken, code }),
+  })
+  if (!res.ok) {
+    const data = await res.json()
+    throw new Error(data.detail || 'TOTP verification failed')
+  }
+  return res.json()
+}
+
 export async function logout() {
   await api('/api/auth/logout', { method: 'POST' })
 }

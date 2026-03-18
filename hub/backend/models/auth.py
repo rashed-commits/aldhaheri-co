@@ -9,6 +9,13 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     message: str
     user: str
+    totp_required: bool = False
+    totp_token: str | None = None
+
+
+class TotpLoginRequest(BaseModel):
+    totp_token: str
+    code: str
 
 
 class VerifyResponse(BaseModel):
@@ -19,6 +26,7 @@ class VerifyResponse(BaseModel):
 class AuthStatusResponse(BaseModel):
     has_passkeys: bool
     setup_required: bool
+    has_totp: bool = False
 
 
 class CredentialResponse(BaseModel):
@@ -30,3 +38,17 @@ class CredentialResponse(BaseModel):
 
 class RenameCredentialRequest(BaseModel):
     name: str
+
+
+class TotpSetupResponse(BaseModel):
+    qr_code: str
+    secret: str
+    message: str
+
+
+class TotpVerifyRequest(BaseModel):
+    code: str
+
+
+class TotpStatusResponse(BaseModel):
+    enabled: bool

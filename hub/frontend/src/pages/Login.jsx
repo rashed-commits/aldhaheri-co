@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { getAuthStatus, loginWithPassword } from '../services/auth'
+import { useState, useEffect, useRef } from 'react'
+import { getAuthStatus, loginWithPassword, loginWithTotp } from '../services/auth'
 import { startAuthentication, startRegistration } from '../services/webauthn'
 
 export default function Login() {
@@ -12,6 +12,12 @@ export default function Login() {
   const [lockoutUntil, setLockoutUntil] = useState(null)
   const [countdown, setCountdown] = useState(0)
   const [registeringPasskey, setRegisteringPasskey] = useState(false)
+
+  // TOTP state
+  const [totpRequired, setTotpRequired] = useState(false)
+  const [totpToken, setTotpToken] = useState('')
+  const [totpCode, setTotpCode] = useState('')
+  const totpInputRef = useRef(null)
 
   useEffect(() => {
     getAuthStatus()
@@ -35,13 +41,28 @@ export default function Login() {
     return () => clearInterval(interval)
   }, [lockoutUntil])
 
+  useEffect(() => {
+    if (totpRequired && totpInputRef.current) {
+      totpInputRef.current.focus()
+    }
+  }, [totpRequired])
+
   const handlePasswordLogin = async (e) => {
     e.preventDefault()
     if (lockoutUntil) return
     setError('')
     setLoading(true)
     try {
-      await loginWithPassword(username, password)
+      const result = await loginWithPassword(username, password)
+
+      // Check if TOTP verification is needed
+      if (result.totp_required) {
+        setTotpRequired(true)
+        setTotpToken(result.totp_token)
+        setLoading(false)
+        return
+      }
+
       // If setup mode, prompt passkey registration after password login
       if (authStatus?.setup_required) {
         setRegisteringPasskey(true)
@@ -65,6 +86,30 @@ export default function Login() {
     }
   }
 
+  const handleTotpSubmit = async (e) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      await loginWithTotp(totpToken, totpCode)
+      window.location.href = '/dashboard'
+    } catch (err) {
+      if (err.message.includes('429') || err.message.includes('locked') || err.message.includes('Too many')) {
+        setLockoutUntil(new Date(Date.now() + 1800000).toISOString())
+        setError('Too many attempts. Please wait.')
+      } else if (err.message.includes('expired')) {
+        setError('Session expired. Please log in again.')
+        setTotpRequired(false)
+        setTotpToken('')
+        setTotpCode('')
+      } else {
+        setError(err.message || 'Invalid code. Please try again.')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handlePasskeyLogin = async () => {
     setError('')
     setLoading(true)
@@ -76,6 +121,13 @@ export default function Login() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleTotpBack = () => {
+    setTotpRequired(false)
+    setTotpToken('')
+    setTotpCode('')
+    setError('')
   }
 
   // Loading state while checking auth status
@@ -113,8 +165,70 @@ export default function Login() {
           </div>
         )}
 
+        {/* TOTP verification step */}
+        {totpRequired && (
+          <form onSubmit={handleTotpSubmit} className="space-y-5">
+            <div className="text-center mb-2">
+              <div className="flex items-center justify-center gap-2 mb-3" style={{ color: '#A78BFA' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <span className="text-sm font-medium">Two-Factor Authentication</span>
+              </div>
+              <p className="text-xs" style={{ color: '#94A3B8' }}>
+                Enter the 6-digit code from your authenticator app
+              </p>
+            </div>
+
+            <div>
+              <input
+                ref={totpInputRef}
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="000000"
+                className="w-full px-3 py-3 rounded-lg text-center text-lg font-mono tracking-widest outline-none transition-colors focus:ring-2"
+                style={{
+                  backgroundColor: '#0F0F1A',
+                  border: '1px solid #2D2D4E',
+                  color: '#F1F5F9',
+                  '--tw-ring-color': '#7C3AED',
+                  letterSpacing: '0.3em',
+                }}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || totpCode.length !== 6}
+              className="w-full py-2.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                backgroundColor: '#7C3AED',
+                color: '#F1F5F9',
+              }}
+            >
+              {loading ? 'Verifying...' : 'Verify'}
+            </button>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={handleTotpBack}
+                className="text-xs transition-colors cursor-pointer"
+                style={{ color: '#94A3B8', background: 'none', border: 'none' }}
+              >
+                Back to login
+              </button>
+            </div>
+          </form>
+        )}
+
         {/* Passkey login button — shown when passkeys exist and not in setup mode */}
-        {hasPasskeys && !isSetup && !showPasswordForm && (
+        {!totpRequired && hasPasskeys && !isSetup && !showPasswordForm && (
           <div className="space-y-4">
             <button
               onClick={handlePasskeyLogin}
@@ -145,7 +259,7 @@ export default function Login() {
         )}
 
         {/* Password form — shown in setup mode, or when user clicks "Use password instead" */}
-        {(isSetup || !hasPasskeys || showPasswordForm) && (
+        {!totpRequired && (isSetup || !hasPasskeys || showPasswordForm) && (
           <form onSubmit={handlePasswordLogin} className="space-y-5">
             {showPasswordForm && (
               <div className="text-center mb-2">
@@ -224,7 +338,7 @@ export default function Login() {
           </div>
         )}
 
-        {isSetup && (
+        {isSetup && !totpRequired && (
           <p className="text-xs text-center mt-6" style={{ color: '#94A3B8' }}>
             After signing in, you will be prompted to register a passkey for future logins.
           </p>

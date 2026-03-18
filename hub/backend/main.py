@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from routers.auth import router as auth_router
+from routers.totp import router as totp_router
 from routers.webauthn import router as webauthn_router
 from utils.database import init_db
 from services.session_store import cleanup_expired
@@ -28,6 +29,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
+app.include_router(totp_router, prefix="/api/auth/totp", tags=["totp"])
 app.include_router(webauthn_router, prefix="/api/auth/webauthn", tags=["webauthn"])
 
 
