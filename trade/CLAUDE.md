@@ -98,6 +98,18 @@ Three containers in `docker-compose.yml`:
 
 `JWT_SECRET` is required in `.env` for SSO token verification (must match aldhaheri.co).
 
+## Position Reconciliation (Phase 5)
+
+Added 2026-03-18. Phase 5 now reconciles `open_positions.json` against Alpaca's actual positions before any trading logic runs. This prevents the local file from drifting when positions are manually opened/closed on Alpaca.
+
+- `reconcile_positions()` in `src/execution/executor.py` — fetches all Alpaca positions via `api.list_positions()`, diffs against local file
+- `list_positions()` in `src/execution/alpaca.py` — wraps `TradingClient.get_all_positions()`
+- Runs after loading positions from disk (step 4b), before stop-loss/take-profit checks (step 5)
+- Skipped in `--dry-run` mode
+- Uses reverse `alpaca_symbol_map` from `CFG` to translate Alpaca symbols (e.g. `BRK.B`) back to yfinance tickers (`BRK-B`)
+- Logs all changes with `RECONCILE:` prefix
+- Fails safe: if Alpaca API call fails, keeps local positions unchanged
+
 ## FinBERT Sentiment Feature
 
 Added 2026-03-15. Scores yfinance news headlines with ProsusAI/finbert. Three features: `sentiment_positive_score`, `sentiment_negative_score`, `sentiment_net_score`.

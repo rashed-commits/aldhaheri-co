@@ -40,7 +40,8 @@ include:
 ## Auth Flow
 
 **Primary**: WebAuthn/FIDO2 passkey authentication
-**Fallback**: Password login for initial setup
+**Secondary**: Password + TOTP (Microsoft Authenticator)
+**Fallback**: Password-only login (if TOTP not enabled)
 
 1. User visits aldhaheri.co and authenticates (passkey or password)
 2. Server creates session in SQLite and issues JWT in secure HTTP-only cookie
@@ -140,6 +141,11 @@ bash deploy.sh
 | POST | `/api/auth/webauthn/register/complete` | Yes | Complete registration |
 | POST | `/api/auth/webauthn/login/begin` | No | Start passkey login |
 | POST | `/api/auth/webauthn/login/complete` | No | Complete passkey login |
+| GET | `/api/totp/status` | Yes | Check if TOTP is enabled |
+| POST | `/api/totp/setup` | Yes | Generate TOTP secret + QR code |
+| POST | `/api/totp/verify` | Yes | Verify TOTP code and enable 2FA |
+| POST | `/api/totp/disable` | Yes | Disable TOTP |
+| POST | `/api/auth/totp/verify` | No | Verify TOTP code during login |
 | GET | `/health` | No | Health check |
 
 ## Archived Repos

@@ -13,7 +13,7 @@ DigitalOcean droplet.
 | 2 | Feature engineering (technicals + fundamentals + sentiment) | `data/features.csv` |
 | 3 | Model training (XGBoost) | `model/saved/` |
 | 4 | Daily signal generation | `output/signals_YYYY-MM-DD.json` |
-| 5 | Alpaca paper trade execution | `output/open_positions.json` |
+| 5 | Alpaca paper trade execution + position reconciliation | `output/open_positions.json` |
 
 ## Quick Start (Local)
 
@@ -68,6 +68,20 @@ Add to the host's crontab (`crontab -e`):
 ```bash
 ./deploy.sh   # commit, push, SSH pull, rebuild
 ```
+
+## Position Reconciliation
+
+Phase 5 reconciles `open_positions.json` against Alpaca's actual positions before making any trading decisions. This prevents drift when positions are manually opened/closed on Alpaca outside the bot.
+
+On each Phase 5 run:
+1. Loads local positions from `open_positions.json`
+2. Fetches real positions from Alpaca API
+3. Removes phantom positions (closed externally)
+4. Adds missing positions (bought externally)
+5. Corrects quantity mismatches
+6. Logs all changes with `RECONCILE:` prefix
+
+Reconciliation runs in live mode only (skipped during `--dry-run`).
 
 ## Web Dashboard
 

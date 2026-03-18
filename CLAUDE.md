@@ -174,7 +174,7 @@ CLI-driven via `trade/main.py --phase N`:
 2. **Features**: Technical indicators, fundamental ratios, FinBERT sentiment scores
 3. **Train**: XGBoost with feature pruning, saves model + metrics to `model/saved/`
 4. **Signals**: Daily buy/sell signal generation → `output/signals_YYYY-MM-DD.json`
-5. **Execute**: Paper trading via Alpaca SDK → `output/open_positions.json`
+5. **Execute**: Reconcile positions against Alpaca, then paper trade → `output/open_positions.json`
 
 VPS cron: Phases 4+5 weekdays 9:25/9:35 AM ET, Phases 1-3 Sunday 6:00 AM.
 
