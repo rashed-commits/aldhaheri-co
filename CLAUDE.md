@@ -1,16 +1,21 @@
-# CLAUDE.md — aldhaheri_co (Monorepo)
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## 1. Project Overview
 Monorepo for all aldhaheri.co services. Contains the SSO hub and four subdomain projects, all deployed from a single repo on one DigitalOcean droplet. Single-user system (one username/password).
 
 ## 2. Tech Stack
-- **Hub**: React 18 + Vite + Tailwind, FastAPI + python-jose (JWT)
-- **Finance**: React + Recharts, FastAPI + SQLAlchemy + Anthropic SDK (SMS parsing)
+- **Hub**: React 19 + Vite + Tailwind 4, FastAPI + python-jose (JWT)
+- **Finance**: React 18 + Recharts + Tailwind 3, FastAPI + async SQLAlchemy + aiosqlite + Anthropic SDK
 - **Market**: Flask + Vanilla JS, OpenAI GPT-4o-mini, Apify, Tavily
-- **Real Estate**: React + Vite + Recharts, FastAPI, Playwright + BeautifulSoup scrapers
-- **Trade**: React + Vite + Recharts, FastAPI, XGBoost, Alpaca SDK
+- **Real Estate**: React 18 + Vite + Recharts, FastAPI, Playwright + BeautifulSoup scrapers
+- **Trade**: React 19 + Vite + Recharts, FastAPI, XGBoost + FinBERT sentiment, Alpaca SDK
 - **Auth**: Cookie-based JWT (HS256, 8hr expiry), shared JWT_SECRET across all services
 - **Infra**: Docker Compose, Nginx + Certbot, DigitalOcean Ubuntu droplet
+- **Databases**: All SQLite (no Postgres). Trade uses JSON files instead of a DB.
+- **Package managers**: npm (all frontends), pip + requirements.txt (all backends)
+- **No test suite or CI/CD pipeline exists.** No pytest, jest, or GitHub Actions.
 
 ## 3. Architecture
 
@@ -35,6 +40,7 @@ aldhaheri_co/
     scrapers/             # PropertyFinder + Bayut
     docker-compose.yml
   trade/                  # ML trading bot + dashboard
+    main.py               # CLI orchestrator (phases 1-5)
     src/                  # XGBoost pipeline (cron-driven, no port)
     api/                  # FastAPI (port 8003)
     dashboard/            # React Vite (port 3003)
@@ -75,12 +81,107 @@ Each per-project compose file:
 | Trade Bot API | trade-bot-api | 8003 | /health |
 | Trade Bot Dashboard | trade-bot-dashboard | 3003 | — |
 
-## 4. Coding Conventions
+## 4. Commands
+
+### Local backend dev
+```bash
+# Hub
+cd hub/backend && uvicorn main:app --reload --port 4001
+
+# Finance
+cd finance/backend && uvicorn backend.main:app --reload --port 8000
+
+# Market
+cd market && python server.py
+
+# Real Estate
+cd realestate/backend && uvicorn main:app --reload --port 8002
+
+# Trade API
+cd trade/api && uvicorn main:app --reload --port 8003
+
+# Trade pipeline (phases 1-5)
+cd trade && python main.py --phase 1  # or 2,3,4,5
+```
+
+### Local frontend dev
+```bash
+# All frontends follow the same pattern
+cd <project>/frontend && npm install && npm run dev
+# Hub: localhost:4000, Finance: localhost:3000, Realestate: localhost:3002, Trade: localhost:3003
+```
+
+### Docker
+```bash
+docker compose up -d --build              # Build all
+docker compose up -d --build finance-backend  # Build single service
+docker compose logs -f finance-backend     # View logs
+docker compose ps                          # Status
+```
+
+### Deploy
+```bash
+bash deploy.sh   # Commits, pushes, SSHs to VPS, pulls, rebuilds
+```
+
+### VPS
+```bash
+ssh root@165.232.162.72 "cd /opt/aldhaheri-co && docker compose ps"
+```
+
+## 5. Key Architectural Patterns
+
+### SSO / JWT Auth
+- Hub backend creates JWT with `sub` (username) + `sid` (session ID), sets `session` cookie on `.aldhaheri.co`
+- All other services validate the cookie with a shared `get_current_user()` dependency
+- All frontends auto-redirect to `https://aldhaheri.co` on 401 (see each project's `api.js`)
+- No `?token=` URL parameter — cookie-only auth
+
+### Thin routes + service logic
+- Routes in `/routers/` handle validation and HTTP concerns only
+- Business logic lives in service files (`parser.py`, `notifications.py`, `session_store.py`)
+
+### Soft-delete pattern
+All deletes set `deleted=True`, never hard-delete. Queries filter `WHERE deleted=False`.
+
+### Async database access
+Finance and Hub use async SQLAlchemy with aiosqlite. Real Estate uses read-only immutable SQLite (`?immutable=1`). Market uses sync SQLite3. Trade has no database — reads JSON files from the pipeline output.
+
+### Frontend auth pattern (all React apps)
+```javascript
+// api.js — every project wraps fetch with auth check
+if (res.status === 401) window.location.href = 'https://aldhaheri.co'
+```
+
+## 6. Finance Chatbot Architecture
+- `POST /api/chat` → builds DB context (totals, categories, keyword-matched transactions up to 100)
+- Claude Sonnet 4.6 processes message + context, returns text + optional `<action>...</action>` JSON blocks
+- Actions: `modify` (update fields), `delete` (soft-delete), `add` (create transaction)
+- Frontend shows approval UI → user confirms → `POST /api/chat/execute` runs the action
+- Keywords extracted from user message are matched against categories and merchants for targeted search
+
+## 7. Trade Pipeline Phases
+CLI-driven via `trade/main.py --phase N`:
+1. **Ingest**: OHLCV + market data from yfinance/Alpaca
+2. **Features**: Technical indicators, fundamental ratios, FinBERT sentiment scores
+3. **Train**: XGBoost with feature pruning, saves model + metrics to `model/saved/`
+4. **Signals**: Daily buy/sell signal generation → `output/signals_YYYY-MM-DD.json`
+5. **Execute**: Paper trading via Alpaca SDK → `output/open_positions.json`
+
+VPS cron: Phases 4+5 weekdays 9:25/9:35 AM ET, Phases 1-3 Sunday 6:00 AM.
+
+## 8. Scheduled Jobs (Finance)
+APScheduler runs inside the finance backend process:
+- **00:00 UTC**: Soft-delete zero-amount transactions (sweep)
+- **10:00 UTC**: Telegram alert if unidentified transactions exist
+- **1st of month 09:00 UTC**: Statement reminder notification
+
+## 9. Coding Conventions
 - **Python**: PEP8, type hints, async handlers, APIRouter pattern, thin routes + service logic
 - **JavaScript**: Functional components, hooks, Tailwind utility classes
 - No dead code or commented-out blocks
 
-## 5. UI & Design Rules
+## 10. UI & Design Rules
 - Background: #0F0F1A | Card: #1A1A2E | Border: #2D2D4E
 - Accent: #7C3AED (purple) | Accent light: #A78BFA
 - Text: #F1F5F9 (primary) | #94A3B8 (muted)
@@ -88,14 +189,7 @@ Each per-project compose file:
 - Font: Inter / system-ui
 - Nav height: 56px across all projects
 
-## 6. SSO / JWT
-- Single `JWT_SECRET` in root `.env`, shared by all services
-- Hub sets `session` cookie on login
-- All subdomains validate the cookie using the shared secret
-- On auth failure, all frontends redirect to `https://aldhaheri.co`
-- No `?token=` URL parameter — cookie-only auth
-
-## 7. Environment Variables
+## 11. Environment Variables
 All services read from the single root `.env` file. Each service only uses the vars it needs.
 
 ```
@@ -108,7 +202,7 @@ HUB_PASSWORD            — Login password
 VITE_API_URL            — Hub frontend API base URL
 
 # Finance
-ANTHROPIC_API_KEY       — Claude API for SMS parsing
+ANTHROPIC_API_KEY       — Claude API for SMS parsing + chatbot
 WEBHOOK_API_KEY         — Tasker webhook + API auth
 DASHBOARD_USERNAME      — Finance dashboard login
 DASHBOARD_PASSWORD      — Finance dashboard password
@@ -132,7 +226,7 @@ ALPACA_SECRET_KEY       — Paper trading secret
 ALPACA_BASE_URL         — Alpaca API endpoint
 ```
 
-## 8. Adding a New Project
+## 12. Adding a New Project
 1. Create `<project>/` directory with backend/frontend
 2. Add `<project>/docker-compose.yml` referencing `../.env`
 3. Add `include:` entry in root `docker-compose.yml`
@@ -143,44 +237,22 @@ ALPACA_BASE_URL         — Alpaca API endpoint
 8. Run `certbot --nginx -d <subdomain>`
 9. Deploy with `docker compose up -d --build`
 
-## 9. Safe-Change Rules
+## 13. Safe-Change Rules
 - Never modify JWT_SECRET — it's shared across all 10 containers
 - Never commit `.env` files
 - Never remove or change any `/health` endpoint shape
 - Never change finance webhook path (`/webhook/sms`) — Tasker depends on it
 - Database migrations need explicit planning (SQLite, no auto-migrate)
 - Backups at `/opt/backups/` on VPS — verify before destructive operations
+- Finance SMS parser prompt changes require careful testing — wrong parsing silently corrupts data
 
-## 10. VPS Details
+## 14. VPS Details
 - **IP**: 165.232.162.72
 - **Repo**: `/opt/aldhaheri-co`
 - **Backups**: `/opt/backups/`
-- **Cron jobs**: trade-bot phases 4+5 weekdays, market-intel scraper daily
+- **Cron jobs**: trade-bot phases 4+5 weekdays, phases 1-3 Sunday, market-intel scraper daily
 
-## 11. Commands
-```bash
-# Local dev — any project
-cd hub/backend && uvicorn main:app --reload --port 4001
-cd finance/backend && uvicorn backend.main:app --reload --port 8000
-cd market && python server.py
-
-# Build all
-docker compose up -d --build
-
-# Build single service
-docker compose up -d --build finance-backend
-
-# Deploy to VPS
-bash deploy.sh
-
-# View logs
-docker compose logs -f finance-backend
-
-# VPS direct
-ssh root@165.232.162.72 "cd /opt/aldhaheri-co && docker compose ps"
-```
-
-## 12. Archived Repos (read-only, do not use)
+## 15. Archived Repos (read-only, do not use)
 - `rashed-commits/sms-finance` → now `finance/`
 - `rashed-commits/uae-market-intel` → now `market/`
 - `rashed-commits/uae-realestate-bot` → now `realestate/`
