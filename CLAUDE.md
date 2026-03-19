@@ -119,9 +119,17 @@ docker compose logs -f finance-backend     # View logs
 docker compose ps                          # Status
 ```
 
+### Lint (frontend only)
+```bash
+# Hub, Realestate, Trade dashboard have ESLint configs
+cd <project>/frontend && npx eslint .
+# Finance frontend has no ESLint config
+# No Python linter tooling is configured
+```
+
 ### Deploy
 ```bash
-bash deploy.sh   # Commits, pushes, SSHs to VPS, pulls, rebuilds
+bash deploy.sh   # Auto-commits (git add . + generic message), pushes, SSHs to VPS, pulls, rebuilds
 ```
 
 ### VPS
@@ -233,6 +241,11 @@ REPORT_RECIPIENT        — Report recipient email
 ALPACA_API_KEY          — Paper trading API key
 ALPACA_SECRET_KEY       — Paper trading secret
 ALPACA_BASE_URL         — Alpaca API endpoint
+TELEGRAM_BOT_TOKEN      — Trade pipeline notifications (shared var name with Finance, independent usage)
+TELEGRAM_CHAT_ID        — Trade Telegram chat target
+
+# Market (additional)
+SCRAPE_MAX_ITEMS_PER_SOURCE — Max items per scraping source (default: 20)
 ```
 
 ## 12. Adding a New Project
@@ -262,7 +275,12 @@ ALPACA_BASE_URL         — Alpaca API endpoint
 - **Backups**: `/opt/backups/`
 - **Cron jobs**: trade-bot phases 4+5 weekdays, phases 1-3 Sunday, market-intel scraper daily
 
-## 15. Archived Repos (read-only, do not use)
+## 15. Legacy Artifacts
+Per-project `.env.example` and `deploy.sh` files exist in some subdirectories (finance, market, realestate, trade) — these are leftovers from when each was a standalone repo. The root `.env.example` and root `deploy.sh` are the canonical ones. Do not use the per-project versions.
+
+`trade/google_apps_script/` contains a Google Sheets analytics dashboard script (not part of the main pipeline).
+
+## 16. Archived Repos (read-only, do not use)
 - `rashed-commits/sms-finance` → now `finance/`
 - `rashed-commits/uae-market-intel` → now `market/`
 - `rashed-commits/uae-realestate-bot` → now `realestate/`
