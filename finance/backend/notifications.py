@@ -5,7 +5,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_CHATBOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 DASHBOARD_URL = "https://finance.aldhaheri.co"
 
@@ -28,10 +28,7 @@ async def send_telegram_notification(txn) -> None:
             f"Merchant: {merchant_str}\n"
             f"Category: {txn.category}\n"
             f"Date: {time_str}\n\n"
-            f"\U0001f449 {DASHBOARD_URL}\n\n"
-            f"\u2014\n"
-            f"This is an automated notification from Naxistant. "
-            f"Naxistant cannot respond to these updates yet \u2014 coming in a future update."
+            f"\U0001f449 {DASHBOARD_URL}"
         )
 
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -61,9 +58,7 @@ async def send_category_help_request(merchant: str, txn) -> None:
             f"Account: {txn.account or 'N/A'}\n\n"
             "Could not determine the category from previous transactions "
             "or the merchant name. Please update it on the dashboard.\n\n"
-            f"\U0001f449 {DASHBOARD_URL}\n\n"
-            "\u2014\n"
-            "Automated alert from Naxistant."
+            f"\U0001f449 {DASHBOARD_URL}"
         )
 
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -105,9 +100,7 @@ async def send_unidentified_alert() -> None:
             "\u26a0\ufe0f Unidentified Transactions\n\n"
             f"You have {count} transaction{'s' if count > 1 else ''} "
             "categorized as Unidentified that need review.\n\n"
-            f"\U0001f449 {DASHBOARD_URL}\n\n"
-            "\u2014\n"
-            "Automated alert from Naxistant."
+            f"\U0001f449 {DASHBOARD_URL}"
         )
 
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -152,9 +145,7 @@ async def send_statement_reminder() -> None:
             "  \u2022 Credit Card 0615\n"
             "  \u2022 Credit Card 4347\n\n"
             "Upload CSVs to the Statements folder, then run the import.\n\n"
-            f"\U0001f449 {DASHBOARD_URL}\n\n"
-            "\u2014\n"
-            "Automated reminder from Naxistant."
+            f"\U0001f449 {DASHBOARD_URL}"
         )
 
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
