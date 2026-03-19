@@ -225,6 +225,7 @@ DASHBOARD_USERNAME      — Finance dashboard login
 DASHBOARD_PASSWORD      — Finance dashboard password
 FINANCE_VITE_API_URL    — Finance frontend API base URL
 TELEGRAM_BOT_TOKEN      — Finance transaction notifications
+TELEGRAM_CHATBOT_TOKEN  — Finance Telegram chatbot (separate bot, same chat)
 TELEGRAM_CHAT_ID        — Finance Telegram chat target
 
 # Market

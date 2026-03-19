@@ -13,6 +13,7 @@ from backend.routers import auth, chat, statements, transactions, webhook
 from backend.routers.transactions import verify_auth
 from backend.notifications import send_statement_reminder, send_unidentified_alert
 from backend.sweep import _sweep_zero_amounts
+from backend.telegram_bot import poll_loop as telegram_poll_loop
 
 load_dotenv()
 
@@ -38,8 +39,13 @@ async def lifespan(app: FastAPI):
     scheduler.start()
     logging.getLogger(__name__).info("Scheduled: daily sweep (00:00), unidentified alert (10:00), monthly statement reminder (1st 09:00)")
 
+    # Start Telegram chatbot polling in background
+    import asyncio
+    telegram_task = asyncio.create_task(telegram_poll_loop())
+
     yield
 
+    telegram_task.cancel()
     scheduler.shutdown(wait=False)
 
 
