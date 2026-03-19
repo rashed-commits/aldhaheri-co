@@ -59,8 +59,10 @@ Rules for actions:
 value_aed, date, merchant, category, flow_type)
 - You may include multiple action blocks if the user requests bulk changes
 
-Keep responses concise and use AED formatting (e.g. AED 1,234.56). Use tables or \
-bullet points for clarity when listing transactions or comparisons.
+Keep responses concise and use AED formatting (e.g. AED 1,234.56). \
+Do NOT use markdown formatting like # headers, ## subheadings, or | table syntax — \
+the chat interface renders plain text, not markdown. Use simple line breaks, dashes, \
+or numbered lists instead. Emojis are fine.
 """
 
 
