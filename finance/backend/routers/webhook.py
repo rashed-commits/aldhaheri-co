@@ -3,18 +3,41 @@ import logging
 import re
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.db import get_db
 from backend.models import Transaction, TransactionOut
-from backend.notifications import send_telegram_notification
+from backend.notifications import send_telegram_notification, send_category_help_request
 from backend.parser import parse_sms
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/webhook", tags=["webhook"])
 
 WEBHOOK_API_KEY = os.getenv("WEBHOOK_API_KEY", "")
+
+UNCATEGORIZED = {"Other", "Unidentified", "Unknown"}
+
+
+async def lookup_category_by_merchant(
+    db: AsyncSession, merchant: str,
+) -> str | None:
+    """Find the most common category for a merchant from previous transactions."""
+    if not merchant:
+        return None
+    result = await db.execute(
+        select(Transaction.category, func.count(Transaction.id).label("cnt"))
+        .where(
+            func.upper(Transaction.merchant) == merchant.upper(),
+            Transaction.deleted == False,
+            Transaction.category.notin_(UNCATEGORIZED),
+        )
+        .group_by(Transaction.category)
+        .order_by(func.count(Transaction.id).desc())
+        .limit(1)
+    )
+    row = result.first()
+    return row[0] if row else None
 
 
 def verify_webhook_key(x_api_key: str = Header(...)) -> str:
@@ -78,14 +101,25 @@ async def receive_sms(
         if m:
             merchant = m.group(1).strip()
 
-    # Re-categorize via keyword categorizer for better accuracy
+    # --- Category resolution (priority order) ---
+    # 1. Cross-reference previous transactions for this merchant
     from backend.categorizer import categorize
-    if merchant or sms_text:
+
+    history_category = await lookup_category_by_merchant(db, merchant) if merchant else None
+    if history_category:
+        category = history_category
+        logger.info("Category from merchant history: %s -> %s", merchant, category)
+    else:
+        # 2. Keyword categorizer
         cat_merchant, cat_category = categorize(sms_text, parsed.get("flow_type", "Outflow"))
         if cat_category != "Other":
             category = cat_category
             if not merchant:
                 merchant = cat_merchant
+            logger.info("Category from keyword categorizer: %s -> %s", merchant, category)
+        # 3. Otherwise keep Claude's category guess from parser.py
+
+    needs_help = category in UNCATEGORIZED
 
     txn = Transaction(
         sms_raw=sms_text,
@@ -108,6 +142,9 @@ async def receive_sms(
 
     try:
         await send_telegram_notification(txn)
+        # 4. If still uncategorized after all attempts, ask on Telegram
+        if needs_help and merchant:
+            await send_category_help_request(merchant, txn)
     except Exception as e:
         logger.error("Telegram notification error: %s", e)
 

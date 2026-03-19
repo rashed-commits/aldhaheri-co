@@ -46,6 +46,38 @@ async def send_telegram_notification(txn) -> None:
         logger.error("Telegram notification failed: %s", e)
 
 
+async def send_category_help_request(merchant: str, txn) -> None:
+    """Ask the user on Telegram to categorize an unknown merchant."""
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+
+    try:
+        amount_str = f"{txn.currency} {txn.amount:,.2f}"
+        message = (
+            "\U0001f4ad Category Help Needed\n\n"
+            f"New transaction from an unknown merchant:\n"
+            f"Merchant: {merchant}\n"
+            f"Amount: {amount_str}\n"
+            f"Account: {txn.account or 'N/A'}\n\n"
+            "Could not determine the category from previous transactions "
+            "or the merchant name. Please update it on the dashboard.\n\n"
+            f"\U0001f449 {DASHBOARD_URL}\n\n"
+            "\u2014\n"
+            "Automated alert from Naxistant."
+        )
+
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(url, json={
+                "chat_id": TELEGRAM_CHAT_ID,
+                "text": message,
+            })
+            if response.status_code != 200:
+                logger.warning("Telegram API returned %d: %s", response.status_code, response.text)
+    except Exception as e:
+        logger.error("Category help request failed: %s", e)
+
+
 async def send_unidentified_alert() -> None:
     """Daily alert if there are any Unidentified transactions."""
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
