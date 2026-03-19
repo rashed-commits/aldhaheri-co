@@ -175,6 +175,14 @@ if (res.status === 401) window.location.href = 'https://aldhaheri.co'
 - Actions: `modify` (update fields), `delete` (soft-delete), `add` (create transaction)
 - Frontend shows approval UI → user confirms → `POST /api/chat/execute` runs the action
 - Keywords extracted from user message are matched against categories and merchants for targeted search
+- **Telegram chatbot** (`finance/backend/telegram_bot.py`): mirrors the web chatbot via long-polling with a separate bot token (`TELEGRAM_CHATBOT_TOKEN`). Auto-executes actions without approval step. `/clear` or `/reset` to reset conversation.
+
+### Transaction category resolution (webhook.py)
+When a new SMS transaction arrives, category is resolved in priority order:
+1. **Merchant history** — most common category from previous transactions for the same merchant
+2. **Keyword categorizer** (`categorizer.py`) — 443-rule static lookup table
+3. **Claude parser guess** — from SMS parsing
+4. **Telegram help request** — if still Other/Unidentified/Unknown, sends a message asking the user
 
 ## 7. Trade Pipeline Phases
 CLI-driven via `trade/main.py --phase N`:
