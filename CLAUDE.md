@@ -48,6 +48,7 @@ aldhaheri_co/
   docker-compose.yml      # Root: hub services + include: per-project files
   .env                    # Single env file for ALL services
   deploy.sh               # Git push + VPS pull + rebuild
+  vps-setup.sh            # Initial VPS provisioning script
   nginx/                  # Nginx site configs
 ```
 
@@ -175,7 +176,13 @@ if (res.status === 401) window.location.href = 'https://aldhaheri.co'
 - Actions: `modify` (update fields), `delete` (soft-delete), `add` (create transaction)
 - Frontend shows approval UI → user confirms → `POST /api/chat/execute` runs the action
 - Keywords extracted from user message are matched against categories and merchants for targeted search
-- **Telegram chatbot** (`finance/backend/telegram_bot.py`): mirrors the web chatbot via long-polling with a separate bot token (`TELEGRAM_CHATBOT_TOKEN`). Auto-executes actions without approval step. `/clear` or `/reset` to reset conversation.
+- **Telegram chatbot** (`finance/backend/telegram_bot.py`): mirrors the web chatbot via long-polling with a separate bot token (`TELEGRAM_CHATBOT_TOKEN`). Auto-executes actions without approval step. `/clear` or `/reset` to reset conversation. Maintains per-chat conversation history in memory (capped at 20 messages).
+
+### Statement Import (`finance/backend/routers/statements.py`)
+- `POST /api/statements/upload` — Upload a bank/credit card CSV, detect format, find missing transactions, optionally import
+- `POST /api/statements/import-all` — Batch import from all CSVs in `/data/statements/` on the container
+- `POST /api/statements/wipe-sheets-import` — Soft-delete all transactions previously imported from Google Sheets
+- Supporting files: `statement_parser.py` (CSV format detection + parsing), `migrate_statements.py`
 
 ### Transaction category resolution (webhook.py)
 When a new SMS transaction arrives, category is resolved in priority order:
@@ -199,6 +206,7 @@ APScheduler runs inside the finance backend process:
 - **00:00 UTC**: Soft-delete zero-amount transactions (sweep)
 - **10:00 UTC**: Telegram alert if unidentified transactions exist
 - **1st of month 09:00 UTC**: Statement reminder notification
+- **Manual**: `POST /api/sweep` — trigger zero-amount sweep on demand
 
 ## 9. Coding Conventions
 - **Python**: PEP8, type hints, async handlers, APIRouter pattern, thin routes + service logic
@@ -270,7 +278,7 @@ SCRAPE_MAX_ITEMS_PER_SOURCE — Max items per scraping source (default: 20)
 
 ## 13. Safe-Change Rules
 - Never modify JWT_SECRET — it's shared across all 10 containers
-- Never commit `.env` files
+- Never commit `.env` files or raw bank statement CSVs (`Statements/` directory)
 - Never remove or change any `/health` endpoint shape
 - Never change finance webhook path (`/webhook/sms`) — Tasker depends on it
 - Database migrations need explicit planning (SQLite, no auto-migrate)
