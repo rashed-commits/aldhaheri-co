@@ -171,11 +171,14 @@ if (res.status === 401) window.location.href = 'https://aldhaheri.co'
 ```
 
 ## 6. Finance Chatbot Architecture
-- `POST /api/chat` → builds DB context (totals, categories, keyword-matched transactions up to 100)
+- `POST /api/chat` → builds DB context (totals, categories, full merchant/category search results, last 100 transactions)
 - Claude Sonnet 4.6 processes message + context, returns text + optional `<action>...</action>` JSON blocks
 - Actions: `modify` (update fields), `delete` (soft-delete), `add` (create transaction)
 - Frontend shows approval UI → user confirms → `POST /api/chat/execute` runs the action
-- Keywords extracted from user message are matched against categories and merchants for targeted search
+- **Full merchant search**: keywords from user message trigger unlimited case-insensitive search across ALL transactions — no caps, no early termination
+- **Category search**: matched categories pull all transactions (no limit)
+- **Amount search**: exact-match on `value_aed`, up to 10 per amount
+- All search results include id, date, account, amount, merchant, category, flow_type for direct action
 - **Telegram chatbot** (`finance/backend/telegram_bot.py`): mirrors the web chatbot via long-polling with a separate bot token (`TELEGRAM_CHATBOT_TOKEN`). Auto-executes actions without approval step. `/clear` or `/reset` to reset conversation. Maintains per-chat conversation history in memory (capped at 20 messages).
 
 ### Statement Import (`finance/backend/routers/statements.py`)

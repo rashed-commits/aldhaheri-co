@@ -16,7 +16,7 @@ backend/          → FastAPI app
   db.py           → async SQLAlchemy engine + session
   models.py       → SQLAlchemy + Pydantic models
   parser.py       → Claude SMS parser
-  routers/        → webhook.py, transactions.py
+  routers/        → webhook.py, transactions.py, chat.py, statements.py
 frontend/         → React SPA
   src/App.jsx     → main dashboard layout
   src/api.js      → fetch wrapper

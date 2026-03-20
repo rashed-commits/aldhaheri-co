@@ -115,6 +115,11 @@ Set up on your Android phone to automatically forward bank SMS to the tracker.
 | `GET` | `/api/transactions/summary` | Session cookie or X-API-Key | Spending summary |
 | `PATCH` | `/api/transactions/{id}` | Session cookie or X-API-Key | Update category/merchant |
 | `DELETE` | `/api/transactions/{id}` | Session cookie or X-API-Key | Soft delete |
+| `POST` | `/api/chat` | Session cookie | AI chatbot — analyse spending, modify/delete/add transactions |
+| `POST` | `/api/chat/execute` | Session cookie | Execute a chatbot action (modify/delete/add) |
+| `POST` | `/api/statements/upload` | Session cookie | Upload bank CSV, detect format, find & import missing transactions |
+| `POST` | `/api/statements/import-all` | Session cookie | Batch import all CSVs from `/data/statements/` |
+| `POST` | `/api/sweep` | Session cookie | Manually trigger zero-amount transaction cleanup |
 | `GET` | `/health` | None | Health check |
 
 ## Verify & Logs
