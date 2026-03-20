@@ -26,7 +26,9 @@ You are a personal finance assistant for a UAE-based user. You help them \
 understand their spending, analyse trends, and manage their transaction records.
 
 You have access to their full transaction database. All monetary amounts are in AED \
-(UAE Dirhams) unless stated otherwise.
+(UAE Dirhams) unless stated otherwise. When you mention a merchant name, the system \
+automatically searches ALL transactions in the database for that merchant — the \
+"Targeted search results" section contains every matching record, not just recent ones.
 
 Your capabilities:
 - Analyse spending patterns, trends, and anomalies
@@ -178,12 +180,12 @@ async def _build_context(db: AsyncSession, user_message: str) -> str:
     cat_result = await db.execute(cat_stmt)
     top_categories = [{"category": r[0], "total": round(r[1], 2)} for r in cat_result.all()]
 
-    # Recent 20 transactions
+    # Recent 100 transactions
     recent_stmt = (
         select(Transaction)
         .where(base)
         .order_by(Transaction.id.desc())
-        .limit(20)
+        .limit(100)
     )
     recent_result = await db.execute(recent_stmt)
     recent_rows = recent_result.scalars().all()
@@ -220,13 +222,12 @@ async def _build_context(db: AsyncSession, user_message: str) -> str:
         if any(kw in cat_lower for kw in keywords):
             matched_categories.append(cat)
 
-    # Pull ALL transactions for matched categories (not just 10)
+    # Pull ALL transactions for matched categories
     if matched_categories:
         cat_search_stmt = (
             select(Transaction)
             .where(base, Transaction.category.in_(matched_categories))
             .order_by(Transaction.date.desc())
-            .limit(100)
         )
         cat_search_result = await db.execute(cat_search_stmt)
         cat_search_rows = cat_search_result.scalars().all()
@@ -240,7 +241,7 @@ async def _build_context(db: AsyncSession, user_message: str) -> str:
             for t in cat_search_rows
         )
 
-    # Search by merchant name (keyword match, up to 50)
+    # Search by merchant name — full DB scan, no limit, all keywords
     for kw in keywords:
         if len(kw) < 4:
             continue
@@ -248,21 +249,18 @@ async def _build_context(db: AsyncSession, user_message: str) -> str:
             select(Transaction)
             .where(base, func.lower(Transaction.merchant).contains(kw))
             .order_by(Transaction.id.desc())
-            .limit(50)
         )
         merchant_result = await db.execute(merchant_stmt)
         merchant_rows = merchant_result.scalars().all()
-        if merchant_rows:
-            targeted_results.extend(
-                {
-                    "id": t.id, "date": t.date, "account": t.account,
-                    "amount": t.value_aed, "merchant": t.merchant,
-                    "category": t.category, "flow_type": t.flow_type,
-                    "match": "merchant",
-                }
-                for t in merchant_rows
-            )
-            break  # first keyword match is enough
+        targeted_results.extend(
+            {
+                "id": t.id, "date": t.date, "account": t.account,
+                "amount": t.value_aed, "merchant": t.merchant,
+                "category": t.category, "flow_type": t.flow_type,
+                "match": "merchant",
+            }
+            for t in merchant_rows
+        )
 
     # Search by amount if the message contains a number
     amount_matches = re.findall(r"[\d,]+\.?\d*", user_message.replace(",", ""))
@@ -299,7 +297,7 @@ async def _build_context(db: AsyncSession, user_message: str) -> str:
         "Top 5 spending categories:",
         json.dumps(top_categories, indent=2),
         "",
-        "Recent 20 transactions:",
+        "Recent 100 transactions:",
         json.dumps(recent_txns, indent=2),
     ]
 
