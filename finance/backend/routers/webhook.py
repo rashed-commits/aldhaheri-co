@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.db import get_db
 from backend.models import Transaction, TransactionOut
-from backend.notifications import send_telegram_notification, send_category_help_request
+from backend.notifications import send_telegram_notification, send_category_help_request, send_duplicate_alert
 from backend.parser import parse_sms
 
 logger = logging.getLogger(__name__)
@@ -87,6 +87,11 @@ async def receive_sms(
 
     parsed = await parse_sms(sms_text)
 
+    # Skip zero-amount transactions
+    if parsed.get("amount", 0.0) == 0 and parsed.get("value_aed", 0.0) == 0:
+        logger.info("Skipped zero-amount transaction: %s", sms_text[:80])
+        return {"status": "skipped", "reason": "zero amount"}
+
     # Normalize account names
     account = parsed.get("account") or ""
     account_map = {"XXX810002": "810002", "XXX920001": "920001"}
@@ -140,10 +145,26 @@ async def receive_sms(
 
     logger.info("Stored transaction %d: %s", txn.id, txn.transaction_type)
 
+    # Check for suspected repeat transaction (same merchant + amount + date)
+    suspected_duplicate = None
+    if merchant and txn.date and txn.amount:
+        dup_result = await db.execute(
+            select(Transaction).where(
+                Transaction.id != txn.id,
+                Transaction.deleted == False,
+                func.upper(Transaction.merchant) == merchant.upper(),
+                Transaction.amount == txn.amount,
+                Transaction.date == txn.date,
+            ).limit(1)
+        )
+        suspected_duplicate = dup_result.scalar_one_or_none()
+
     try:
         await send_telegram_notification(txn)
+        if suspected_duplicate:
+            await send_duplicate_alert(txn, suspected_duplicate)
         # 4. If still uncategorized after all attempts, ask on Telegram
-        if needs_help and merchant:
+        elif needs_help and merchant:
             await send_category_help_request(merchant, txn)
     except Exception as e:
         logger.error("Telegram notification error: %s", e)

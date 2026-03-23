@@ -557,7 +557,7 @@ function Dashboard() {
         <CategoryDrilldown
           category={drilldown.category}
           flowType={drilldown.flowType}
-          transactions={transactions}
+          transactions={filteredTransactions}
           onClose={() => setDrilldown(null)}
         />
       )}

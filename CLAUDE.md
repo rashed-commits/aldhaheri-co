@@ -194,6 +194,14 @@ When a new SMS transaction arrives, category is resolved in priority order:
 3. **Claude parser guess** — from SMS parsing
 4. **Telegram help request** — if still Other/Unidentified/Unknown, sends a message asking the user
 
+### Webhook ingestion guards (webhook.py)
+Before saving a transaction, the webhook rejects:
+- Empty/short SMS, unresolved Tasker variables, failed/declined keywords
+- **Exact duplicate SMS** — same `sms_raw` text as an existing non-deleted transaction
+- **Zero-amount transactions** — both `amount` and `value_aed` are zero
+
+After saving, the webhook checks for **suspected repeat transactions** (same merchant + same amount + same date as an existing transaction) and sends a Telegram alert asking the user to confirm or delete the duplicate.
+
 ## 7. Trade Pipeline Phases
 CLI-driven via `trade/main.py --phase N`:
 1. **Ingest**: OHLCV + market data from yfinance/Alpaca

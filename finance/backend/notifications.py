@@ -73,6 +73,44 @@ async def send_category_help_request(merchant: str, txn) -> None:
         logger.error("Category help request failed: %s", e)
 
 
+async def send_duplicate_alert(new_txn, existing_txn) -> None:
+    """Alert user about a suspected repeat transaction on Telegram."""
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+
+    try:
+        amount_str = f"{new_txn.currency} {new_txn.amount:,.2f}"
+        message = (
+            "\u26a0\ufe0f Suspected Repeat Transaction\n\n"
+            f"A new transaction looks like a duplicate of an existing one:\n\n"
+            f"NEW (#{new_txn.id}):\n"
+            f"  Merchant: {new_txn.merchant}\n"
+            f"  Amount: {amount_str}\n"
+            f"  Date: {new_txn.date} at {new_txn.time or 'N/A'}\n"
+            f"  Account: {new_txn.account or 'N/A'}\n\n"
+            f"EXISTING (#{existing_txn.id}):\n"
+            f"  Merchant: {existing_txn.merchant}\n"
+            f"  Amount: {existing_txn.currency} {existing_txn.amount:,.2f}\n"
+            f"  Date: {existing_txn.date} at {existing_txn.time or 'N/A'}\n"
+            f"  Account: {existing_txn.account or 'N/A'}\n\n"
+            "If this is a duplicate, delete it from the dashboard "
+            "or tell the chatbot: \"delete transaction #"
+            f"{new_txn.id}\"\n\n"
+            f"\U0001f449 {DASHBOARD_URL}"
+        )
+
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(url, json={
+                "chat_id": TELEGRAM_CHAT_ID,
+                "text": message,
+            })
+            if response.status_code != 200:
+                logger.warning("Telegram API returned %d: %s", response.status_code, response.text)
+    except Exception as e:
+        logger.error("Duplicate alert failed: %s", e)
+
+
 async def send_unidentified_alert() -> None:
     """Daily alert if there are any Unidentified transactions."""
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:

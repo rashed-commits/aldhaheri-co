@@ -55,10 +55,12 @@ To add a new transaction:
 Rules for actions:
 - Always explain what you are about to do BEFORE the action block
 - Ask for confirmation if the request is ambiguous or affects multiple transactions
-- For modify, only include the fields that need changing
+- For modify, only include the fields that NEED changing — do NOT include date, time, \
+or any other field the user did not ask to change. Including unchanged fields can corrupt data.
 - For delete, only include the transaction id
 - For add, include all required fields (transaction_type, account, amount, currency, \
-value_aed, date, merchant, category, flow_type)
+value_aed, date, merchant, category, flow_type). Use today's date from the context below \
+if the user does not specify a date.
 - You may include multiple action blocks if the user requests bulk changes
 
 Keep responses concise and use AED formatting (e.g. AED 1,234.56). \
@@ -288,7 +290,10 @@ async def _build_context(db: AsyncSession, user_message: str) -> str:
         except ValueError:
             pass
 
+    today = datetime.now(timezone.utc).strftime("%m/%d/%Y")
     context_parts = [
+        f"Today's date: {today}",
+        "",
         f"Total active transactions: {total_count}",
         f"Total inflow: AED {total_inflow:,.2f}",
         f"Total outflow: AED {total_outflow:,.2f}",
