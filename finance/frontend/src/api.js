@@ -57,4 +57,11 @@ export async function deletePosition(id) {
   })
 }
 
+export async function closePosition(id, data) {
+  return api(`/api/investments/positions/${id}/close`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
 export default api

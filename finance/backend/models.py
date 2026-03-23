@@ -39,6 +39,9 @@ class InvestmentPosition(Base):
     cost_per_share = Column(Float, nullable=False)
     entry_date = Column(String, nullable=False)  # MM/DD/YYYY
     currency = Column(String, default="USD")
+    status = Column(String, default="open")  # "open" or "closed"
+    close_date = Column(String, nullable=True)  # MM/DD/YYYY
+    close_price = Column(Float, nullable=True)
     deleted = Column(Boolean, default=False)
 
 
@@ -50,6 +53,9 @@ class InvestmentPositionOut(BaseModel):
     cost_per_share: float
     entry_date: str
     currency: str
+    status: str
+    close_date: Optional[str] = None
+    close_price: Optional[float] = None
 
     model_config = {"from_attributes": True}
 
@@ -60,6 +66,12 @@ class InvestmentPositionCreate(BaseModel):
     cost_per_share: float
     entry_date: str
     currency: str = "USD"
+
+
+class InvestmentCloseRequest(BaseModel):
+    close_price: float
+    close_date: str  # MM/DD/YYYY
+    shares: Optional[float] = None  # None = close full lot
 
 
 class TransactionOut(BaseModel):

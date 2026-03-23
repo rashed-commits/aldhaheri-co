@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.db import get_db
-from backend.models import InvestmentPosition, InvestmentPositionCreate, InvestmentPositionOut
+from backend.models import InvestmentCloseRequest, InvestmentPosition, InvestmentPositionCreate, InvestmentPositionOut
 from backend.routers.transactions import verify_auth
 
 logger = logging.getLogger(__name__)
@@ -143,6 +143,60 @@ async def delete_position(
     return {"status": "ok", "message": f"Position #{pos_id} deleted"}
 
 
+@router.post("/positions/{pos_id}/close", response_model=InvestmentPositionOut)
+async def close_position(
+    pos_id: int,
+    body: InvestmentCloseRequest,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(verify_auth),
+) -> InvestmentPositionOut:
+    """Close a position fully or partially."""
+    result = await db.execute(
+        select(InvestmentPosition).where(
+            InvestmentPosition.id == pos_id,
+            InvestmentPosition.deleted == False,
+            InvestmentPosition.status == "open",
+        )
+    )
+    pos = result.scalar_one_or_none()
+    if not pos:
+        raise HTTPException(status_code=404, detail="Open position not found")
+
+    close_shares = body.shares if body.shares is not None else pos.shares
+
+    if close_shares <= 0:
+        raise HTTPException(status_code=400, detail="Shares must be positive")
+    if close_shares > pos.shares:
+        raise HTTPException(status_code=400, detail=f"Cannot close {close_shares} shares, only {pos.shares} available")
+
+    if close_shares == pos.shares:
+        # Full close — mark position as closed
+        pos.status = "closed"
+        pos.close_date = body.close_date
+        pos.close_price = body.close_price
+        await db.commit()
+        await db.refresh(pos)
+        return InvestmentPositionOut.model_validate(pos)
+    else:
+        # Partial close — reduce original, create closed split
+        pos.shares = pos.shares - close_shares
+
+        closed_split = InvestmentPosition(
+            ticker=pos.ticker,
+            shares=close_shares,
+            cost_per_share=pos.cost_per_share,
+            entry_date=pos.entry_date,
+            currency=pos.currency,
+            status="closed",
+            close_date=body.close_date,
+            close_price=body.close_price,
+        )
+        db.add(closed_split)
+        await db.commit()
+        await db.refresh(closed_split)
+        return InvestmentPositionOut.model_validate(closed_split)
+
+
 @router.get("/portfolio")
 async def get_portfolio(
     db: AsyncSession = Depends(get_db),
@@ -154,28 +208,78 @@ async def get_portfolio(
         .where(InvestmentPosition.deleted == False)
         .order_by(InvestmentPosition.entry_date.asc())
     )
-    positions = result.scalars().all()
+    all_positions = result.scalars().all()
+
+    empty_summary = {
+        "total_cost_usd": 0, "total_value_usd": 0, "total_pnl_usd": 0,
+        "total_pnl_pct": 0, "total_cost_aed": 0, "total_value_aed": 0,
+        "total_pnl_aed": 0, "total_shares": 0, "daily_change_pct": 0,
+        "daily_change_usd": 0, "daily_change_aed": 0,
+        "realized_pnl_usd": 0, "realized_pnl_aed": 0,
+        "total_return_usd": 0, "total_return_aed": 0,
+        "usd_aed_rate": USD_AED_RATE,
+    }
+
+    if not all_positions:
+        return {"positions": [], "closed_positions": [], "summary": empty_summary, "history": []}
+
+    positions = [p for p in all_positions if p.status == "open"]
+    closed = [p for p in all_positions if p.status == "closed"]
+
+    # Compute realized P&L from closed positions
+    realized_pnl_usd = 0.0
+    closed_details = []
+    for p in closed:
+        cost = p.shares * p.cost_per_share
+        proceeds = p.shares * (p.close_price or 0)
+        pnl = proceeds - cost
+        pnl_pct = (pnl / cost * 100) if cost else 0
+        # Holding period in days
+        try:
+            entry_dt = _parse_date(p.entry_date)
+            close_dt = _parse_date(p.close_date) if p.close_date else entry_dt
+            holding_days = (close_dt - entry_dt).days
+        except (ValueError, TypeError):
+            holding_days = 0
+
+        realized_pnl_usd += pnl
+        closed_details.append({
+            "id": p.id,
+            "ticker": p.ticker,
+            "shares": p.shares,
+            "cost_per_share": p.cost_per_share,
+            "close_price": p.close_price,
+            "entry_date": p.entry_date,
+            "close_date": p.close_date,
+            "cost_usd": round(cost, 2),
+            "proceeds_usd": round(proceeds, 2),
+            "pnl_usd": round(pnl, 2),
+            "pnl_pct": round(pnl_pct, 2),
+            "cost_aed": round(cost * USD_AED_RATE, 2),
+            "proceeds_aed": round(proceeds * USD_AED_RATE, 2),
+            "pnl_aed": round(pnl * USD_AED_RATE, 2),
+            "holding_days": holding_days,
+        })
 
     if not positions:
-        return {
-            "positions": [],
-            "summary": {
-                "total_cost_usd": 0, "total_value_usd": 0, "total_pnl_usd": 0,
-                "total_pnl_pct": 0, "total_cost_aed": 0, "total_value_aed": 0,
-                "total_pnl_aed": 0, "total_shares": 0, "daily_change_pct": 0,
-                "daily_change_usd": 0, "usd_aed_rate": USD_AED_RATE,
-            },
-            "history": [],
-        }
+        # No open positions — return only closed data
+        total_return_usd = realized_pnl_usd
+        empty_summary.update({
+            "realized_pnl_usd": round(realized_pnl_usd, 2),
+            "realized_pnl_aed": round(realized_pnl_usd * USD_AED_RATE, 2),
+            "total_return_usd": round(total_return_usd, 2),
+            "total_return_aed": round(total_return_usd * USD_AED_RATE, 2),
+        })
+        return {"positions": [], "closed_positions": closed_details, "summary": empty_summary, "history": []}
 
-    # Group positions by ticker
+    # Group open positions by ticker
     tickers: dict[str, list] = {}
     for p in positions:
         tickers.setdefault(p.ticker, []).append(p)
 
-    # Find earliest entry date across all positions
+    # Find earliest entry date across all positions (open + closed for full history)
     earliest = min(
-        _parse_date(p.entry_date) for p in positions
+        _parse_date(p.entry_date) for p in all_positions
     ).strftime("%Y-%m-%d")
 
     # Fetch price data per ticker (cached, with stale fallback)
@@ -282,8 +386,11 @@ async def get_portfolio(
             "cost_aed": round(day_cost_usd * USD_AED_RATE, 2),
         })
 
+    total_return_usd = total_pnl_usd + realized_pnl_usd
+
     return {
         "positions": pos_details,
+        "closed_positions": closed_details,
         "summary": {
             "total_cost_usd": round(total_cost_usd, 2),
             "total_value_usd": round(total_value_usd, 2),
@@ -296,6 +403,10 @@ async def get_portfolio(
             "daily_change_pct": round(daily_change_pct, 2),
             "daily_change_usd": round(daily_change_usd, 2),
             "daily_change_aed": round(daily_change_usd * USD_AED_RATE, 2),
+            "realized_pnl_usd": round(realized_pnl_usd, 2),
+            "realized_pnl_aed": round(realized_pnl_usd * USD_AED_RATE, 2),
+            "total_return_usd": round(total_return_usd, 2),
+            "total_return_aed": round(total_return_usd * USD_AED_RATE, 2),
             "usd_aed_rate": USD_AED_RATE,
         },
         "history": history,

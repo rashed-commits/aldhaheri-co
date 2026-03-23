@@ -192,7 +192,8 @@ ssh root@165.232.162.72 "cd /opt/aldhaheri-co && docker compose ps"
 | GET | `/api/investments/positions` | Session | List investment positions |
 | POST | `/api/investments/positions` | Session | Add a position |
 | DELETE | `/api/investments/positions/{id}` | Session | Soft-delete a position |
-| GET | `/api/investments/portfolio` | Session | Portfolio summary with live prices |
+| POST | `/api/investments/positions/{id}/close` | Session | Close position (full or partial) |
+| GET | `/api/investments/portfolio` | Session | Portfolio with open/closed positions and P&L |
 
 ### Market
 | Method | Path | Description |

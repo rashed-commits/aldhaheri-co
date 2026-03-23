@@ -313,7 +313,7 @@ Accessible at `/investments` within the finance frontend. Tracks stock/ETF posit
 
 - **Model**: `InvestmentPosition` table in finance SQLite DB (ticker, shares, cost_per_share, entry_date, soft-delete)
 - **Backend**: `finance/backend/routers/investments.py` — CRUD for positions + `/api/investments/portfolio` for full portfolio with live prices and historical data
-- **Frontend**: `finance/frontend/src/components/Investments.jsx` — stat cards, line chart (value vs cost basis), positions table with per-lot P&L
+- **Frontend**: `finance/frontend/src/components/Investments.jsx` — stat cards (unrealized + realized P&L, total return), line chart (value vs cost basis), open positions table with close/sell button, closed positions trade history table with holding period and return %
 - **USD/AED**: Fixed rate 3.6725 (constant in investments router)
 - **Price source**: yfinance (no API key needed), fetched on page load
 - **Caching**: In-memory 5-minute TTL cache per ticker. Falls back to stale cache on rate limit or error.
@@ -349,7 +349,8 @@ All `/api/*` endpoints require a valid session cookie unless noted. Every backen
 - `GET /api/investments/positions` — List all positions
 - `POST /api/investments/positions` — Add a position (ticker, shares, cost_per_share, entry_date)
 - `DELETE /api/investments/positions/{id}` — Soft-delete a position
-- `GET /api/investments/portfolio` — Full portfolio summary with live prices, P&L, and historical chart data
+- `POST /api/investments/positions/{id}/close` — Close full or partial position (close_price, close_date, optional shares)
+- `GET /api/investments/portfolio` — Full portfolio with open/closed positions, realized + unrealized P&L, chart data
 
 ### Market
 - `GET /api?action=all|stats|sector&sector=X|search&q=X`
