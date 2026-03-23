@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import datetime, timezone
 
 import yfinance as yf
@@ -15,6 +16,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/investments", tags=["investments"])
 
 USD_AED_RATE = 3.6725
+
+# In-memory price cache: {ticker: {"data": {...}, "fetched_at": timestamp}}
+_price_cache: dict[str, dict] = {}
+CACHE_TTL = 300  # 5 minutes
 
 SEED_POSITIONS = [
     {"ticker": "VOO", "shares": 15, "cost_per_share": 617.45, "entry_date": "03/17/2026", "currency": "USD"},
@@ -40,7 +45,7 @@ def _parse_date(date_str: str) -> datetime:
 
 
 def _fetch_ticker_data(ticker: str, start: str) -> dict:
-    """Fetch current price and historical data from yfinance.
+    """Fetch current price and historical data from yfinance (cached 5 min).
 
     Args:
         ticker: Stock ticker symbol.
@@ -49,10 +54,25 @@ def _fetch_ticker_data(ticker: str, start: str) -> dict:
     Returns:
         Dict with 'current_price' and 'history' (list of {date, close}).
     """
+    cache_key = f"{ticker}:{start}"
+    now = time.time()
+
+    # Return cached data if fresh
+    if cache_key in _price_cache:
+        entry = _price_cache[cache_key]
+        if now - entry["fetched_at"] < CACHE_TTL:
+            logger.info("Cache hit for %s", cache_key)
+            return entry["data"]
+
     t = yf.Ticker(ticker)
     hist = t.history(start=start, interval="1d")
 
     if hist.empty:
+        logger.warning("yfinance returned empty history for %s (start=%s)", ticker, start)
+        # Return stale cache if available
+        if cache_key in _price_cache:
+            logger.info("Returning stale cache for %s", cache_key)
+            return _price_cache[cache_key]["data"]
         return {"current_price": 0.0, "history": []}
 
     history = [
@@ -61,7 +81,13 @@ def _fetch_ticker_data(ticker: str, start: str) -> dict:
     ]
     current_price = history[-1]["close"] if history else 0.0
 
-    return {"current_price": current_price, "history": history}
+    result = {"current_price": current_price, "history": history}
+
+    # Cache the result
+    _price_cache[cache_key] = {"data": result, "fetched_at": now}
+    logger.info("Fetched and cached %s: %d data points, price=$%.2f", ticker, len(history), current_price)
+
+    return result
 
 
 @router.get("/positions", response_model=list[InvestmentPositionOut])
@@ -152,14 +178,20 @@ async def get_portfolio(
         _parse_date(p.entry_date) for p in positions
     ).strftime("%Y-%m-%d")
 
-    # Fetch price data per ticker
+    # Fetch price data per ticker (cached, with stale fallback)
     ticker_data: dict[str, dict] = {}
     for ticker in tickers:
         try:
             ticker_data[ticker] = _fetch_ticker_data(ticker, earliest)
         except Exception as e:
             logger.error("Failed to fetch data for %s: %s", ticker, e)
-            ticker_data[ticker] = {"current_price": 0.0, "history": []}
+            # Try stale cache
+            cache_key = f"{ticker}:{earliest}"
+            if cache_key in _price_cache:
+                logger.info("Using stale cache for %s after error", ticker)
+                ticker_data[ticker] = _price_cache[cache_key]["data"]
+            else:
+                ticker_data[ticker] = {"current_price": 0.0, "history": []}
 
     # Build per-lot position details
     total_cost_usd = 0.0
