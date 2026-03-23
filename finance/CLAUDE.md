@@ -4,7 +4,7 @@
 Self-hosted personal finance tracker for UAE bank SMS. Receives SMS via Tasker webhook, parses with Claude AI, stores in SQLite, serves React dashboard. Optimizes for reliability and low maintenance.
 
 ## 2. Tech Stack
-- **Backend:** FastAPI, SQLAlchemy + aiosqlite, Anthropic SDK, python-dotenv
+- **Backend:** FastAPI, SQLAlchemy + aiosqlite, Anthropic SDK, yfinance, python-dotenv
 - **Frontend:** React 18, Tailwind CSS 3, Recharts, Vite
 - **Database:** SQLite at `/data/finance.db`
 - **Infra:** Docker Compose, Nginx reverse proxy, DigitalOcean Ubuntu droplet
@@ -16,11 +16,11 @@ backend/          → FastAPI app
   db.py           → async SQLAlchemy engine + session
   models.py       → SQLAlchemy + Pydantic models
   parser.py       → Claude SMS parser
-  routers/        → webhook.py, transactions.py, chat.py, statements.py
+  routers/        → webhook.py, transactions.py, chat.py, statements.py, investments.py
 frontend/         → React SPA
   src/App.jsx     → main dashboard layout
   src/api.js      → fetch wrapper
-  src/components/ → InflowOutflow, SpendByCategory, AccountBreakdown, RecentTransactions
+  src/components/ → InflowOutflow, SpendByCategory, AccountBreakdown, RecentTransactions, Investments
 ```
 
 ## 4. Coding Conventions

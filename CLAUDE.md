@@ -315,8 +315,9 @@ Accessible at `/investments` within the finance frontend. Tracks stock/ETF posit
 - **Backend**: `finance/backend/routers/investments.py` — CRUD for positions + `/api/investments/portfolio` for full portfolio with live prices and historical data
 - **Frontend**: `finance/frontend/src/components/Investments.jsx` — stat cards, line chart (value vs cost basis), positions table with per-lot P&L
 - **USD/AED**: Fixed rate 3.6725 (constant in investments router)
-- **Price source**: yfinance (no API key needed)
-- **Seed data**: Initial VOO positions auto-inserted on first startup if table is empty
+- **Price source**: yfinance (no API key needed), fetched on page load
+- **Caching**: In-memory 5-minute TTL cache per ticker. Falls back to stale cache on rate limit or error.
+- **Seed data**: Initial VOO positions (44 shares across 3 lots) auto-inserted on first startup if table is empty
 
 ## 17. API Endpoints Quick Reference
 
