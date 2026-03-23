@@ -317,6 +317,7 @@ Accessible at `/investments` within the finance frontend. Tracks stock/ETF posit
 - **USD/AED**: Fixed rate 3.6725 (constant in investments router)
 - **Price source**: yfinance (no API key needed), fetched on page load
 - **Caching**: In-memory 5-minute TTL cache per ticker. Falls back to stale cache on rate limit or error.
+- **Close positions**: Full or partial close via `POST /positions/{id}/close`. Partial close splits the lot — original keeps remaining shares, sold portion becomes a closed trade. Tracks close_date, close_price, realized P&L, and holding period.
 - **Seed data**: Initial VOO positions (44 shares across 3 lots) auto-inserted on first startup if table is empty
 
 ## 17. API Endpoints Quick Reference

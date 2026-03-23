@@ -15,7 +15,7 @@ Key features:
 - **Full merchant search** across the entire transaction history — the chatbot sees the last 100 transactions plus unlimited keyword-matched results from all records
 - **CSV bank statement import** for reconciliation against existing transactions
 - **Auto-categorization** by merchant history, 443-rule keyword lookup, Claude AI, and Telegram fallback
-- **Investment portfolio tracker** (`/investments`) — tracks stock/ETF positions with live prices via yfinance, USD/AED conversion, per-lot P&L, and historical value chart
+- **Investment portfolio tracker** (`/investments`) — tracks stock/ETF positions with live prices via yfinance, USD/AED conversion, per-lot P&L, historical value chart, close positions (full or partial) with realized P&L tracking and trade history
 
 ### Market — [market.aldhaheri.co](https://market.aldhaheri.co)
 UAE business signal intelligence. Scrapes social media, forums, news, and review platforms to surface emerging opportunities. Classifies signals with GPT-4o-mini and scores them by sector (F&B, Fintech, Healthcare, Real Estate, etc.). Bilingual Arabic/English.
