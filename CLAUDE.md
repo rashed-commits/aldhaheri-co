@@ -172,7 +172,7 @@ if (res.status === 401) window.location.href = 'https://aldhaheri.co'
 
 ## 6. Finance Chatbot Architecture
 - `POST /api/chat` → builds DB context (totals, categories, full merchant/category search results, last 100 transactions)
-- Claude Sonnet 4.6 processes message + context, returns text + optional `<action>...</action>` JSON blocks
+- Claude Sonnet processes message + context, returns text + optional `<action>...</action>` JSON blocks
 - Actions: `modify` (update fields), `delete` (soft-delete), `add` (create transaction)
 - Frontend shows approval UI → user confirms → `POST /api/chat/execute` runs the action
 - **Full merchant search**: keywords from user message trigger unlimited case-insensitive search across ALL transactions — no caps, no early termination
@@ -300,7 +300,64 @@ Per-project `.env.example` and `deploy.sh` files exist in some subdirectories (f
 
 `trade/google_apps_script/` contains a Google Sheets analytics dashboard script (not part of the main pipeline).
 
-## 16. Archived Repos (read-only, do not use)
+## 16. API Endpoints Quick Reference
+
+All `/api/*` endpoints require a valid session cookie unless noted. Every backend exposes `GET /health` (unauthenticated).
+
+### Hub
+- `POST /api/auth/login` — Password login (no auth)
+- `GET /api/auth/verify` — Verify session
+- `POST /api/auth/logout` — Revoke session (no auth)
+- `POST /api/auth/webauthn/{register,login}/{begin,complete}` — Passkey flow
+- `GET /api/totp/status`, `POST /api/totp/{setup,verify,disable}` — TOTP management
+- `POST /api/auth/totp/verify` — TOTP during login (no auth)
+
+### Finance
+- `POST /webhook/sms` — Receive SMS (X-API-Key auth, not session)
+- `GET /api/transactions` — List (paginated, session or X-API-Key)
+- `GET /api/transactions/summary` — Spending summary
+- `PATCH /api/transactions/{id}` — Update fields
+- `DELETE /api/transactions/{id}` — Soft delete
+- `POST /api/chat` — AI chatbot query
+- `POST /api/chat/execute` — Execute chatbot action
+- `POST /api/statements/upload` — Upload bank CSV
+- `POST /api/statements/import-all` — Batch import from `/data/statements/`
+- `POST /api/statements/wipe-sheets-import` — Soft-delete Google Sheets imports
+- `POST /api/sweep` — Manual zero-amount cleanup
+
+### Market
+- `GET /api?action=all|stats|sector&sector=X|search&q=X`
+
+### Real Estate
+- `GET /api/listings` — Listings with filters (city, area, purpose, type)
+- `GET /api/listings/{id}` — Single listing with area benchmark
+- `GET /api/listings/{id}/history` — Price history
+- `GET /api/areas` — Area benchmarks
+- `GET /api/stats` — Database statistics
+
+### Trade
+- `GET /api/portfolio/summary` — Equity, P&L, position count
+- `GET /api/portfolio/positions` — Open positions
+- `GET /api/portfolio/signals` — Last 30 days of signals
+- `GET /api/portfolio/signals/latest` — Most recent signal file
+- `GET /api/portfolio/performance` — Model metrics
+- `GET /api/portfolio/features` — Top 15 feature importances
+
+## 17. External Integration: Tasker (Finance SMS)
+Android Tasker is configured to forward bank SMS to the finance webhook:
+- **Trigger**: Event > Phone > Received SMS
+- **URL**: `https://finance.aldhaheri.co/webhook/sms`
+- **Method**: POST, **Headers**: `Content-Type: application/json`, `X-API-Key: <WEBHOOK_API_KEY>`
+- **Body**: `{"sms": "%SMSRB"}`
+
+## 18. DNS Setup
+All subdomains point to the same VPS IP via A records:
+
+| Record | Value |
+|---|---|
+| `@`, `www`, `finance`, `market`, `realestate`, `trade` | 165.232.162.72 |
+
+## 19. Archived Repos (read-only, do not use)
 - `rashed-commits/sms-finance` → now `finance/`
 - `rashed-commits/uae-market-intel` → now `market/`
 - `rashed-commits/uae-realestate-bot` → now `realestate/`
