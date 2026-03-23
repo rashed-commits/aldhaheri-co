@@ -29,6 +29,39 @@ class Transaction(Base):
     deleted = Column(Boolean, default=False)
 
 
+class InvestmentPosition(Base):
+    __tablename__ = "investment_positions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    ticker = Column(String, nullable=False)
+    shares = Column(Float, nullable=False)
+    cost_per_share = Column(Float, nullable=False)
+    entry_date = Column(String, nullable=False)  # MM/DD/YYYY
+    currency = Column(String, default="USD")
+    deleted = Column(Boolean, default=False)
+
+
+class InvestmentPositionOut(BaseModel):
+    id: int
+    created_at: datetime
+    ticker: str
+    shares: float
+    cost_per_share: float
+    entry_date: str
+    currency: str
+
+    model_config = {"from_attributes": True}
+
+
+class InvestmentPositionCreate(BaseModel):
+    ticker: str
+    shares: float
+    cost_per_share: float
+    entry_date: str
+    currency: str = "USD"
+
+
 class TransactionOut(BaseModel):
     id: int
     created_at: datetime

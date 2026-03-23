@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { fetchTransactions, fetchSummary } from "./api";
 import InflowOutflow from "./components/InflowOutflow";
 import CategoryPieChart from "./components/CategoryPieChart";
@@ -9,6 +9,38 @@ import CategoryDrilldown from "./components/CategoryDrilldown";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ProjectNav from "./components/ProjectNav";
 import ChatBot from "./components/ChatBot";
+import Investments from "./components/Investments";
+
+function TabNav() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const tabs = [
+    { name: "Dashboard", path: "/" },
+    { name: "Investments", path: "/investments" },
+  ];
+  return (
+    <div className="flex gap-0 border-b border-gray-800 px-6">
+      {tabs.map((t) => {
+        const active = location.pathname === t.path;
+        return (
+          <button
+            key={t.path}
+            onClick={() => navigate(t.path)}
+            className="px-4 py-2.5 text-sm font-medium transition-colors"
+            style={{
+              color: active ? "#7C3AED" : "#94A3B8",
+              borderBottom: active ? "2px solid #7C3AED" : "2px solid transparent",
+              background: "none",
+              cursor: "pointer",
+            }}
+          >
+            {t.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 const DEFAULT_EXCLUDED = new Set(["Internal Transfers", "Credit Card Payment"]);
 
@@ -411,6 +443,7 @@ function Dashboard() {
           Logout
         </button>
       </header>
+      <TabNav />
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -567,6 +600,34 @@ function Dashboard() {
   );
 }
 
+function InvestmentsPage() {
+  const handleLogout = () => {
+    window.location.href = 'https://aldhaheri.co'
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-950 text-gray-100">
+      <ProjectNav />
+      <header className="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">Finance - AlDhaheri</h1>
+          <p className="text-sm text-gray-500">Investment portfolio tracker</p>
+        </div>
+        <button
+          onClick={handleLogout}
+          className="px-4 py-2 text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded-lg transition-colors"
+        >
+          Logout
+        </button>
+      </header>
+      <TabNav />
+      <main className="max-w-7xl mx-auto px-4 py-6">
+        <Investments />
+      </main>
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -576,6 +637,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/investments"
+          element={
+            <ProtectedRoute>
+              <InvestmentsPage />
             </ProtectedRoute>
           }
         />

@@ -15,6 +15,7 @@ Key features:
 - **Full merchant search** across the entire transaction history — the chatbot sees the last 100 transactions plus unlimited keyword-matched results from all records
 - **CSV bank statement import** for reconciliation against existing transactions
 - **Auto-categorization** by merchant history, 443-rule keyword lookup, Claude AI, and Telegram fallback
+- **Investment portfolio tracker** (`/investments`) — tracks stock/ETF positions with live prices via yfinance, USD/AED conversion, per-lot P&L, and historical value chart
 
 ### Market — [market.aldhaheri.co](https://market.aldhaheri.co)
 UAE business signal intelligence. Scrapes social media, forums, news, and review platforms to surface emerging opportunities. Classifies signals with GPT-4o-mini and scores them by sector (F&B, Fintech, Healthcare, Real Estate, etc.). Bilingual Arabic/English.
@@ -188,6 +189,10 @@ ssh root@165.232.162.72 "cd /opt/aldhaheri-co && docker compose ps"
 | POST | `/api/statements/upload` | Session | Upload bank CSV for reconciliation |
 | POST | `/api/statements/import-all` | Session | Batch import CSVs from `/data/statements/` |
 | POST | `/api/sweep` | Session | Manual zero-amount cleanup |
+| GET | `/api/investments/positions` | Session | List investment positions |
+| POST | `/api/investments/positions` | Session | Add a position |
+| DELETE | `/api/investments/positions/{id}` | Session | Soft-delete a position |
+| GET | `/api/investments/portfolio` | Session | Portfolio summary with live prices |
 
 ### Market
 | Method | Path | Description |

@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.db import engine
 from backend.models import Base
-from backend.routers import auth, chat, statements, transactions, webhook
+from backend.routers import auth, chat, investments, statements, transactions, webhook
 from backend.routers.transactions import verify_auth
 from backend.notifications import send_statement_reminder, send_unidentified_alert
 from backend.sweep import _sweep_zero_amounts
@@ -26,6 +26,12 @@ scheduler = AsyncIOScheduler()
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Seed initial investment positions if table is empty
+    from backend.routers.investments import seed_positions
+    from backend.db import async_session as _session
+    async with _session() as db:
+        await seed_positions(db)
 
     # Daily sweep at midnight UTC — soft-delete zero-amount transactions
     scheduler.add_job(_sweep_zero_amounts, "cron", hour=0, minute=0, id="sweep_zero")
@@ -64,6 +70,7 @@ app.include_router(webhook.router)
 app.include_router(transactions.router)
 app.include_router(statements.router)
 app.include_router(chat.router)
+app.include_router(investments.router)
 
 
 @app.get("/health")

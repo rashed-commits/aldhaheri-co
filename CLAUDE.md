@@ -308,7 +308,18 @@ Per-project `.env.example` and `deploy.sh` files exist in some subdirectories (f
 
 `trade/google_apps_script/` contains a Google Sheets analytics dashboard script (not part of the main pipeline).
 
-## 16. API Endpoints Quick Reference
+## 16. Investment Portfolio Tracker (Finance)
+Accessible at `/investments` within the finance frontend. Tracks stock/ETF positions with live prices via yfinance.
+
+- **Model**: `InvestmentPosition` table in finance SQLite DB (ticker, shares, cost_per_share, entry_date, soft-delete)
+- **Backend**: `finance/backend/routers/investments.py` — CRUD for positions + `/api/investments/portfolio` for full portfolio with live prices and historical data
+- **Frontend**: `finance/frontend/src/components/Investments.jsx` — stat cards, line chart (value vs cost basis), positions table with per-lot P&L
+- **USD/AED**: Fixed rate 3.6725 (constant in investments router)
+- **Price source**: yfinance (no API key needed)
+- **Seed data**: Initial VOO positions auto-inserted on first startup if table is empty
+
+## 17. API Endpoints Quick Reference
+
 
 All `/api/*` endpoints require a valid session cookie unless noted. Every backend exposes `GET /health` (unauthenticated).
 
@@ -333,6 +344,12 @@ All `/api/*` endpoints require a valid session cookie unless noted. Every backen
 - `POST /api/statements/wipe-sheets-import` — Soft-delete Google Sheets imports
 - `POST /api/sweep` — Manual zero-amount cleanup
 
+### Finance — Investments
+- `GET /api/investments/positions` — List all positions
+- `POST /api/investments/positions` — Add a position (ticker, shares, cost_per_share, entry_date)
+- `DELETE /api/investments/positions/{id}` — Soft-delete a position
+- `GET /api/investments/portfolio` — Full portfolio summary with live prices, P&L, and historical chart data
+
 ### Market
 - `GET /api?action=all|stats|sector&sector=X|search&q=X`
 
@@ -351,21 +368,21 @@ All `/api/*` endpoints require a valid session cookie unless noted. Every backen
 - `GET /api/portfolio/performance` — Model metrics
 - `GET /api/portfolio/features` — Top 15 feature importances
 
-## 17. External Integration: Tasker (Finance SMS)
+## 18. External Integration: Tasker (Finance SMS)
 Android Tasker is configured to forward bank SMS to the finance webhook:
 - **Trigger**: Event > Phone > Received SMS
 - **URL**: `https://finance.aldhaheri.co/webhook/sms`
 - **Method**: POST, **Headers**: `Content-Type: application/json`, `X-API-Key: <WEBHOOK_API_KEY>`
 - **Body**: `{"sms": "%SMSRB"}`
 
-## 18. DNS Setup
+## 19. DNS Setup
 All subdomains point to the same VPS IP via A records:
 
 | Record | Value |
 |---|---|
 | `@`, `www`, `finance`, `market`, `realestate`, `trade` | 165.232.162.72 |
 
-## 19. Archived Repos (read-only, do not use)
+## 20. Archived Repos (read-only, do not use)
 - `rashed-commits/sms-finance` → now `finance/`
 - `rashed-commits/uae-market-intel` → now `market/`
 - `rashed-commits/uae-realestate-bot` → now `realestate/`

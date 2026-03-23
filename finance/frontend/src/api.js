@@ -39,4 +39,22 @@ export async function deleteTransaction(id) {
   })
 }
 
+// Investments
+export async function fetchPortfolio() {
+  return api('/api/investments/portfolio')
+}
+
+export async function addPosition(data) {
+  return api('/api/investments/positions', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function deletePosition(id) {
+  return api(`/api/investments/positions/${id}`, {
+    method: 'DELETE',
+  })
+}
+
 export default api
