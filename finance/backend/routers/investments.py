@@ -1,4 +1,6 @@
+import json
 import logging
+import os
 import time
 from datetime import datetime, timezone
 
@@ -17,9 +19,35 @@ router = APIRouter(prefix="/api/investments", tags=["investments"])
 
 USD_AED_RATE = 3.6725
 
-# In-memory price cache: {ticker: {"data": {...}, "fetched_at": timestamp}}
+# Price cache — in-memory with disk persistence at /data/price_cache.json
 _price_cache: dict[str, dict] = {}
 CACHE_TTL = 300  # 5 minutes
+CACHE_FILE = "/data/price_cache.json"
+
+
+def _load_disk_cache() -> None:
+    """Load cached price data from disk on startup."""
+    global _price_cache
+    if os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE) as f:
+                _price_cache = json.load(f)
+            logger.info("Loaded price cache from disk: %d entries", len(_price_cache))
+        except Exception as e:
+            logger.warning("Failed to load price cache: %s", e)
+
+
+def _save_disk_cache() -> None:
+    """Persist current cache to disk."""
+    try:
+        with open(CACHE_FILE, "w") as f:
+            json.dump(_price_cache, f)
+    except Exception as e:
+        logger.warning("Failed to save price cache: %s", e)
+
+
+# Load cache on module import
+_load_disk_cache()
 
 SEED_POSITIONS = [
     {"ticker": "VOO", "shares": 15, "cost_per_share": 617.45, "entry_date": "03/17/2026", "currency": "USD"},
@@ -83,8 +111,9 @@ def _fetch_ticker_data(ticker: str, start: str) -> dict:
 
     result = {"current_price": current_price, "history": history}
 
-    # Cache the result
+    # Cache the result (memory + disk)
     _price_cache[cache_key] = {"data": result, "fetched_at": now}
+    _save_disk_cache()
     logger.info("Fetched and cached %s: %d data points, price=$%.2f", ticker, len(history), current_price)
 
     return result
