@@ -18,6 +18,7 @@ from backend.telegram_bot import poll_loop as telegram_poll_loop
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()
 
@@ -26,6 +27,30 @@ scheduler = AsyncIOScheduler()
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+        # Migrate: add close position columns if missing
+        import sqlalchemy as sa
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE investment_positions ADD COLUMN status TEXT DEFAULT 'open'"
+            ))
+            logger.info("Migration: added 'status' column to investment_positions")
+        except Exception:
+            pass  # column already exists
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE investment_positions ADD COLUMN close_date TEXT"
+            ))
+            logger.info("Migration: added 'close_date' column to investment_positions")
+        except Exception:
+            pass
+        try:
+            await conn.execute(sa.text(
+                "ALTER TABLE investment_positions ADD COLUMN close_price REAL"
+            ))
+            logger.info("Migration: added 'close_price' column to investment_positions")
+        except Exception:
+            pass
 
     # Seed initial investment positions if table is empty
     from backend.routers.investments import seed_positions
