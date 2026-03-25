@@ -265,6 +265,9 @@ export default function Investments() {
           AED
         </button>
         <span className="text-xs text-gray-600">Rate: 1 USD = {s.usd_aed_rate} AED</span>
+        {s.prices_updated_at && (
+          <span className="text-xs text-gray-600 ml-2">· Prices as of {s.prices_updated_at} UAE</span>
+        )}
       </div>
 
       {/* Stat cards */}

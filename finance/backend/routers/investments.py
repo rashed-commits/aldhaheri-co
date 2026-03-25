@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import yfinance as yf
 from fastapi import APIRouter, Depends, HTTPException
@@ -97,8 +97,8 @@ def _fetch_ticker_data(ticker: str, start: str) -> dict:
 
     if hist.empty:
         logger.warning("yfinance returned empty history for %s (start=%s)", ticker, start)
-        # Return stale cache if available
-        if cache_key in _price_cache:
+        # Return stale cache only if it has a valid price
+        if cache_key in _price_cache and _price_cache[cache_key]["data"].get("current_price", 0) > 0:
             logger.info("Returning stale cache for %s", cache_key)
             return _price_cache[cache_key]["data"]
         return {"current_price": 0.0, "history": []}
@@ -117,6 +117,22 @@ def _fetch_ticker_data(ticker: str, start: str) -> dict:
     logger.info("Fetched and cached %s: %d data points, price=$%.2f", ticker, len(history), current_price)
 
     return result
+
+
+def _get_prices_updated_at(tickers: dict, earliest: str) -> str | None:
+    """Return the oldest fetched_at timestamp across cached tickers, in UAE time (ISO format)."""
+    timestamps = []
+    for ticker in tickers:
+        cache_key = f"{ticker}:{earliest}"
+        entry = _price_cache.get(cache_key)
+        if entry and "fetched_at" in entry:
+            timestamps.append(entry["fetched_at"])
+    if not timestamps:
+        return None
+    # Use the oldest timestamp (most stale) so the user sees worst-case freshness
+    uae_tz = timezone(timedelta(hours=4))
+    oldest = min(timestamps)
+    return datetime.fromtimestamp(oldest, tz=uae_tz).strftime("%b %d, %Y %I:%M %p")
 
 
 @router.get("/positions", response_model=list[InvestmentPositionOut])
@@ -416,6 +432,7 @@ async def get_portfolio(
         })
 
     total_return_usd = total_pnl_usd + realized_pnl_usd
+    prices_updated_at = _get_prices_updated_at(tickers, earliest)
 
     return {
         "positions": pos_details,
@@ -437,6 +454,7 @@ async def get_portfolio(
             "total_return_usd": round(total_return_usd, 2),
             "total_return_aed": round(total_return_usd * USD_AED_RATE, 2),
             "usd_aed_rate": USD_AED_RATE,
+            "prices_updated_at": prices_updated_at,
         },
         "history": history,
     }
