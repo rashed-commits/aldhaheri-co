@@ -22,7 +22,9 @@ USD_AED_RATE = 3.6725
 # Price cache — in-memory with disk persistence at /data/price_cache.json
 _price_cache: dict[str, dict] = {}
 CACHE_TTL = 300  # 5 minutes
+FAILURE_CACHE_TTL = 60  # cache failures for 60s to avoid hammering yfinance
 CACHE_FILE = "/data/price_cache.json"
+_failure_cache: dict[str, float] = {}  # cache_key -> timestamp of last failure
 
 
 def _load_disk_cache() -> None:
@@ -92,6 +94,13 @@ def _fetch_ticker_data(ticker: str, start: str) -> dict:
             logger.info("Cache hit for %s", cache_key)
             return entry["data"]
 
+    # If we recently failed, don't retry yet — return stale cache or empty
+    if cache_key in _failure_cache and now - _failure_cache[cache_key] < FAILURE_CACHE_TTL:
+        logger.info("Skipping yfinance for %s — rate limited, cooldown active", ticker)
+        if cache_key in _price_cache and _price_cache[cache_key]["data"].get("current_price", 0) > 0:
+            return _price_cache[cache_key]["data"]
+        return {"current_price": 0.0, "history": []}
+
     # Try up to 2 times with a delay for rate limiting
     hist = None
     for attempt in range(2):
@@ -103,10 +112,11 @@ def _fetch_ticker_data(ticker: str, start: str) -> dict:
         except Exception as e:
             logger.warning("yfinance attempt %d failed for %s: %s", attempt + 1, ticker, e)
         if attempt == 0:
-            time.sleep(3)
+            time.sleep(5)
 
     if hist is None or hist.empty:
         logger.warning("yfinance returned no data for %s (start=%s) after retries", ticker, start)
+        _failure_cache[cache_key] = now  # prevent hammering
         # Return stale cache only if it has a valid price
         if cache_key in _price_cache and _price_cache[cache_key]["data"].get("current_price", 0) > 0:
             logger.info("Returning stale cache for %s", cache_key)
