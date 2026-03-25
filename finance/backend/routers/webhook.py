@@ -75,6 +75,19 @@ async def receive_sms(
         logger.info("Skipped failed transaction SMS: %s", sms_text[:80])
         return {"status": "skipped", "reason": "failed transaction"}
 
+    pending_keywords = [
+        "subject to verification",
+        "pending clearance",
+        "will be processed",
+        "cheque will be processed",
+        "under review",
+        "awaiting verification",
+        "not yet cleared",
+    ]
+    if any(kw in sms_lower for kw in pending_keywords):
+        logger.info("Skipped pending/uncleared transaction SMS: %s", sms_text[:80])
+        return {"status": "skipped", "reason": "pending transaction"}
+
     existing = await db.execute(
         select(Transaction.id).where(
             Transaction.sms_raw == sms_text,
