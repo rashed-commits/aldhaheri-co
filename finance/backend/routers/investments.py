@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import time
+import urllib.request
 from datetime import datetime, timezone, timedelta
 
 import yfinance as yf
@@ -101,21 +102,39 @@ def _fetch_ticker_data(ticker: str, start: str) -> dict:
             return _price_cache[cache_key]["data"]
         return {"current_price": 0.0, "history": []}
 
-    # Try up to 2 times with a delay for rate limiting
-    hist = None
-    for attempt in range(2):
-        try:
-            t = yf.Ticker(ticker)
-            hist = t.history(start=start, interval="1d")
-            if not hist.empty:
-                break
-        except Exception as e:
-            logger.warning("yfinance attempt %d failed for %s: %s", attempt + 1, ticker, e)
-        if attempt == 0:
-            time.sleep(5)
+    # Try yfinance first
+    history: list[dict] = []
+    try:
+        t = yf.Ticker(ticker)
+        hist = t.history(start=start, interval="1d")
+        if not hist.empty:
+            history = [
+                {"date": idx.strftime("%Y-%m-%d"), "close": round(row["Close"], 2)}
+                for idx, row in hist.iterrows()
+            ]
+    except Exception as e:
+        logger.warning("yfinance failed for %s: %s", ticker, e)
 
-    if hist is None or hist.empty:
-        logger.warning("yfinance returned no data for %s (start=%s) after retries", ticker, start)
+    # Fallback: direct Yahoo Finance chart API (not rate-limited the same way)
+    if not history:
+        try:
+            logger.info("Trying direct Yahoo API fallback for %s", ticker)
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?range=30d&interval=1d"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            resp = urllib.request.urlopen(req, timeout=10)
+            data = json.loads(resp.read())
+            chart_result = data["chart"]["result"][0]
+            timestamps = chart_result["timestamp"]
+            closes = chart_result["indicators"]["quote"][0]["close"]
+            for ts, c in zip(timestamps, closes):
+                if c is not None:
+                    d = datetime.utcfromtimestamp(ts).strftime("%Y-%m-%d")
+                    history.append({"date": d, "close": round(c, 2)})
+        except Exception as e2:
+            logger.warning("Direct Yahoo API fallback also failed for %s: %s", ticker, e2)
+
+    if not history:
+        logger.warning("No price data for %s (start=%s) from any source", ticker, start)
         _failure_cache[cache_key] = now  # prevent hammering
         # Return stale cache only if it has a valid price
         if cache_key in _price_cache and _price_cache[cache_key]["data"].get("current_price", 0) > 0:
@@ -123,10 +142,6 @@ def _fetch_ticker_data(ticker: str, start: str) -> dict:
             return _price_cache[cache_key]["data"]
         return {"current_price": 0.0, "history": []}
 
-    history = [
-        {"date": idx.strftime("%Y-%m-%d"), "close": round(row["Close"], 2)}
-        for idx, row in hist.iterrows()
-    ]
     current_price = history[-1]["close"] if history else 0.0
 
     result = {"current_price": current_price, "history": history}
