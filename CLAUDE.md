@@ -96,7 +96,7 @@ Root `docker-compose.yml` uses `include:` to merge per-project compose files. Hu
 Priority order: merchant history → keyword categorizer (`categorizer.py`, 443 rules) → Claude parser guess → Telegram help request
 
 ### Webhook ingestion guards (webhook.py)
-Rejects: empty/short SMS, unresolved Tasker variables, failed/declined keywords, exact duplicate SMS, zero-amount transactions. After save, checks for suspected repeats (same merchant + amount + date) and alerts via Telegram.
+Rejects: empty/short SMS, unresolved Tasker variables, failed/declined keywords, pending/uncleared transactions (e.g. "subject to verification", "pending clearance", "cheque will be processed"), exact duplicate SMS, zero-amount transactions. Cheque deposits are only recorded once a separate confirmation SMS arrives (pending cheque notifications are filtered out). After save, checks for suspected repeats (same merchant + amount + date) and alerts via Telegram.
 
 ## Trade Pipeline Phases
 CLI-driven via `trade/main.py --phase N`:
