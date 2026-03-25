@@ -16,13 +16,21 @@ cd finance/backend && uvicorn backend.main:app --reload --port 8000
 cd market && python server.py
 cd realestate/backend && uvicorn main:app --reload --port 8002
 cd trade/api && uvicorn main:app --reload --port 8003
-cd trade && python main.py --phase 1  # phases 1-5
+cd trade && python main.py --phase 1  # phases 1-5, add --dry-run for safe testing
 ```
 
 ### Local frontend dev
 ```bash
 cd <project>/frontend && npm install && npm run dev
 # Hub: localhost:4000, Finance: localhost:3000, Realestate: localhost:3002, Trade: localhost:3003
+```
+
+### Real Estate scraper pipeline
+```bash
+cd realestate && python main.py --skip-bayut       # Full pipeline
+cd realestate && python main.py --pf-only --dry-run # Test scraper
+cd realestate && python main.py --score-only        # Score existing data
+cd realestate && python main.py --db-stats          # View DB stats
 ```
 
 ### Docker
@@ -85,6 +93,13 @@ Root `docker-compose.yml` uses `include:` to merge per-project compose files. Hu
 - **Soft-delete everywhere**: All deletes set `deleted=True`, queries filter `WHERE deleted=False`
 - **Async DB**: Finance and Hub use async SQLAlchemy + aiosqlite. Real Estate uses `?immutable=1`. Market uses sync sqlite3. Trade reads JSON files.
 
+### Data paths (inside containers)
+- Finance DB: `/data/finance.db` (Docker volume `finance-data`)
+- Hub DB: `/data/` (Docker volume `hub-data`)
+- Market DB: `/app/data/market_intel.db`
+- Real Estate DB: `data/listings.db` (auto-created by scrapers)
+- Trade output: `output/` (signals, positions JSON) and `model/saved/` (XGBoost model, metrics)
+
 ## Finance Chatbot Architecture
 - `POST /api/chat` builds DB context (totals, categories, merchant/category search results, last 100 transactions)
 - Claude Sonnet returns text + optional `<action>...</action>` JSON blocks (`modify`, `delete`, `add`)
@@ -99,20 +114,20 @@ Priority order: merchant history → keyword categorizer (`categorizer.py`, 443 
 Rejects: empty/short SMS, unresolved Tasker variables, failed/declined keywords, pending/uncleared transactions (e.g. "subject to verification", "pending clearance", "cheque will be processed"), exact duplicate SMS, zero-amount transactions. Cheque deposits are only recorded once a separate confirmation SMS arrives (pending cheque notifications are filtered out). After save, checks for suspected repeats (same merchant + amount + date) and alerts via Telegram.
 
 ## Trade Pipeline Phases
-CLI-driven via `trade/main.py --phase N`:
+CLI-driven via `trade/main.py --phase N` (add `--dry-run` to skip real trades):
 1. **Ingest**: OHLCV + market data from yfinance/Alpaca
-2. **Features**: Technical indicators, fundamental ratios, FinBERT sentiment
+2. **Features**: Technical indicators, fundamental ratios, FinBERT sentiment (`src/sentiment.py`, lazy-loads ProsusAI/finbert, needs ~500MB RAM)
 3. **Train**: XGBoost with feature pruning → `model/saved/`
-4. **Signals**: Daily buy/sell → `output/signals_YYYY-MM-DD.json`
-5. **Execute**: Reconcile + paper trade → `output/open_positions.json`
+4. **Signals**: Daily buy/sell → `output/signals_YYYY-MM-DD.json` (fetches live sentiment for reasoning)
+5. **Execute**: Reconcile positions against Alpaca (`reconcile_positions()`) + paper trade → `output/open_positions.json`
 
-VPS cron: Phases 4+5 weekdays 9:25/9:35 AM ET, Phases 1-3 Sunday 6:00 AM.
+VPS cron: Phases 4+5 weekdays 9:25/9:35 AM ET, Phases 1-3 Sunday 6:00 AM. Sentiment data accumulates in `data/sentiment.csv`.
 
 ## Investment Portfolio Tracker (Finance)
 - `/investments` route in finance frontend
 - `InvestmentPosition` table: ticker, shares, cost_per_share, entry_date, soft-delete
 - USD/AED fixed rate 3.6725 (constant in `finance/backend/routers/investments.py`)
-- yfinance prices with in-memory 5-min TTL cache, falls back to stale cache on error
+- yfinance prices with disk-persisted 5-min TTL cache (`/data/price_cache.json`), falls back to stale cache on error
 - Partial close splits the lot — original keeps remaining shares, sold portion becomes closed trade
 - Seed data: VOO positions (44 shares, 3 lots) auto-inserted on first startup if empty
 
@@ -163,7 +178,7 @@ Note: `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are used independently by both
 See `README.md` for the full API endpoint reference for all services. Every backend exposes `GET /health` (unauthenticated). All other `/api/*` endpoints require a valid session cookie.
 
 ## Legacy Artifacts
-Per-project `.env.example` and `deploy.sh` in subdirectories are leftovers — use only the root versions. Per-project `CLAUDE.md` files in subdirectories contain supplementary context but may be outdated — this root file is authoritative. `trade/google_apps_script/` is a standalone Google Sheets script, not part of the pipeline.
+Per-project `.env.example` and `deploy.sh` in subdirectories are leftovers — use only the root versions. Per-project `CLAUDE.md` files in subdirectories contain supplementary context but may be outdated — this root file is authoritative. `trade/google_apps_script/` is a standalone Google Sheets script, not part of the pipeline. Note: `trade/CLAUDE.md` references `?token=` URL auth in the dashboard — this is outdated; all services now use cookie-only auth.
 
 ## VPS
 - **IP**: 165.232.162.72 | **Repo**: `/opt/aldhaheri-co` | **Backups**: `/opt/backups/`
