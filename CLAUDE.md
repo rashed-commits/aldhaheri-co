@@ -63,7 +63,7 @@ Root `docker-compose.yml` uses `include:` to merge per-project compose files. Hu
 | Service | Port | Health |
 |---|---|---|
 | hub-frontend / hub-backend | 4000 / 4001 | /health (backend) |
-| finance-frontend / finance-backend | 3000 / 8001 | /health (backend) |
+| finance-frontend / finance-backend | 3000 / 8001 (internal 8000) | /health (backend) |
 | market-intel | 8000 | /health |
 | realestate-frontend / realestate-backend | 3002 / 8002 | /health (backend) |
 | trade-bot-dashboard / trade-bot-api / trade-bot | 3003 / 8003 / none | /health (api), cron (bot) |
@@ -149,8 +149,21 @@ All services read from the single root `.env` file. See `.env.example` for the f
 
 Note: `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are used independently by both Finance and Trade containers.
 
+## Adding a New Project
+1. Create `<project>/` directory with backend/frontend and its own `docker-compose.yml`
+2. Add `include:` entry in root `docker-compose.yml`
+3. Add env vars to root `.env` and `.env.example`
+4. Add card to `hub/frontend/src/config/projects.js`
+5. Add DNS A record pointing to 165.232.162.72
+6. Create Nginx config at `/etc/nginx/sites-available/<subdomain>`
+7. Run `certbot --nginx -d <subdomain>.aldhaheri.co`
+8. Deploy: `docker compose up -d --build`
+
+## API Endpoints
+See `README.md` for the full API endpoint reference for all services. Every backend exposes `GET /health` (unauthenticated). All other `/api/*` endpoints require a valid session cookie.
+
 ## Legacy Artifacts
-Per-project `.env.example` and `deploy.sh` in subdirectories are leftovers — use only the root versions. `trade/google_apps_script/` is a standalone Google Sheets script, not part of the pipeline.
+Per-project `.env.example` and `deploy.sh` in subdirectories are leftovers — use only the root versions. Per-project `CLAUDE.md` files in subdirectories contain supplementary context but may be outdated — this root file is authoritative. `trade/google_apps_script/` is a standalone Google Sheets script, not part of the pipeline.
 
 ## VPS
 - **IP**: 165.232.162.72 | **Repo**: `/opt/aldhaheri-co` | **Backups**: `/opt/backups/`
