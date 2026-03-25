@@ -92,11 +92,21 @@ def _fetch_ticker_data(ticker: str, start: str) -> dict:
             logger.info("Cache hit for %s", cache_key)
             return entry["data"]
 
-    t = yf.Ticker(ticker)
-    hist = t.history(start=start, interval="1d")
+    # Try up to 2 times with a delay for rate limiting
+    hist = None
+    for attempt in range(2):
+        try:
+            t = yf.Ticker(ticker)
+            hist = t.history(start=start, interval="1d")
+            if not hist.empty:
+                break
+        except Exception as e:
+            logger.warning("yfinance attempt %d failed for %s: %s", attempt + 1, ticker, e)
+        if attempt == 0:
+            time.sleep(3)
 
-    if hist.empty:
-        logger.warning("yfinance returned empty history for %s (start=%s)", ticker, start)
+    if hist is None or hist.empty:
+        logger.warning("yfinance returned no data for %s (start=%s) after retries", ticker, start)
         # Return stale cache only if it has a valid price
         if cache_key in _price_cache and _price_cache[cache_key]["data"].get("current_price", 0) > 0:
             logger.info("Returning stale cache for %s", cache_key)
