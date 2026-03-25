@@ -101,7 +101,7 @@ Root `docker-compose.yml` uses `include:` to merge per-project compose files. Hu
 - Trade output: `output/` (signals, positions JSON) and `model/saved/` (XGBoost model, metrics)
 
 ## Finance Chatbot Architecture
-- `POST /api/chat` builds DB context (totals, categories, merchant/category search results, last 100 transactions)
+- `POST /api/chat` rebuilds full DB context from scratch on **every message** (totals, categories, merchant/category search results, last 100 transactions) — the model always sees current data
 - Claude Sonnet returns text + optional `<action>...</action>` JSON blocks (`modify`, `delete`, `add`)
 - Frontend shows approval UI → user confirms → `POST /api/chat/execute` runs the action
 - **Merchant search**: keywords trigger unlimited case-insensitive search across ALL transactions

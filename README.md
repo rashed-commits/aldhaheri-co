@@ -11,7 +11,7 @@ SSO login portal and project dashboard. Handles authentication for all services 
 Personal finance tracker for UAE bank transactions. Receives SMS from an Android phone via Tasker webhook, parses with Claude AI, stores in SQLite, and serves a React dashboard with spending analytics.
 
 Key features:
-- **AI chatbot** (web + Telegram) that can query, modify, delete, and add transactions
+- **AI chatbot** (web + Telegram) that can query, modify, delete, and add transactions — context is rebuilt fresh from the database on every message, so the bot always has up-to-date data
 - **Full merchant search** across the entire transaction history — the chatbot sees the last 100 transactions plus unlimited keyword-matched results from all records
 - **CSV bank statement import** for reconciliation against existing transactions
 - **Auto-categorization** by merchant history, 443-rule keyword lookup, Claude AI, and Telegram fallback
