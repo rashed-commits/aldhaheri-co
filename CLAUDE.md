@@ -127,7 +127,8 @@ VPS cron: Phases 4+5 weekdays 9:25/9:35 AM ET, Phases 1-3 Sunday 6:00 AM. Sentim
 - `/investments` route in finance frontend
 - `InvestmentPosition` table: ticker, shares, cost_per_share, entry_date, soft-delete
 - USD/AED fixed rate 3.6725 (constant in `finance/backend/routers/investments.py`)
-- yfinance prices with disk-persisted 5-min TTL cache (`/data/price_cache.json`), falls back to stale cache on error
+- yfinance prices with disk-persisted 5-min TTL cache (`/data/price_cache.json`), falls back to stale cache on error (only if cached price > 0)
+- Portfolio API returns `prices_updated_at` (UAE time) — displayed next to USD/AED rate on frontend
 - Partial close splits the lot — original keeps remaining shares, sold portion becomes closed trade
 - Seed data: VOO positions (44 shares, 3 lots) auto-inserted on first startup if empty
 

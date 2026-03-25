@@ -16,7 +16,7 @@ Key features:
 - **CSV bank statement import** for reconciliation against existing transactions
 - **Auto-categorization** by merchant history, 443-rule keyword lookup, Claude AI, and Telegram fallback
 - **Pending transaction filter** — automatically rejects uncleared/pending SMS (e.g. cheque deposits awaiting clearance) so only confirmed transactions are recorded
-- **Investment portfolio tracker** (`/investments`) — tracks stock/ETF positions with live prices via yfinance, USD/AED conversion, per-lot P&L, historical value chart, close positions (full or partial) with realized P&L tracking and trade history
+- **Investment portfolio tracker** (`/investments`) — tracks stock/ETF positions with live prices via yfinance, USD/AED conversion, per-lot P&L, historical value chart, close positions (full or partial) with realized P&L tracking and trade history. Shows price update timestamp (UAE time) next to the exchange rate.
 
 ### Market — [market.aldhaheri.co](https://market.aldhaheri.co)
 UAE business signal intelligence. Scrapes social media, forums, news, and review platforms to surface emerging opportunities. Classifies signals with GPT-4o-mini and scores them by sector (F&B, Fintech, Healthcare, Real Estate, etc.). Bilingual Arabic/English.
