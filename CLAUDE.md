@@ -92,6 +92,7 @@ Root `docker-compose.yml` uses `include:` to merge per-project compose files. Hu
 - **Thin routes + service logic**: Routes in `/routers/` handle HTTP only; business logic in service files (`parser.py`, `notifications.py`, `session_store.py`)
 - **Soft-delete everywhere**: All deletes set `deleted=True`, queries filter `WHERE deleted=False`
 - **Async DB**: Finance and Hub use async SQLAlchemy + aiosqlite. Real Estate uses `?immutable=1`. Market uses sync sqlite3. Trade reads JSON files.
+- **File placement**: New API routes → `<project>/backend/routers/`, new UI components → `<project>/frontend/src/components/`, DB models → `<project>/backend/models.py`
 
 ### Data paths (inside containers)
 - Finance DB: `/data/finance.db` (Docker volume `finance-data`)
@@ -121,7 +122,11 @@ CLI-driven via `trade/main.py --phase N` (add `--dry-run` to skip real trades):
 4. **Signals**: Daily buy/sell → `output/signals_YYYY-MM-DD.json` (fetches live sentiment for reasoning)
 5. **Execute**: Reconcile positions against Alpaca (`reconcile_positions()`) + paper trade → `output/open_positions.json`
 
-VPS cron: Phases 4+5 weekdays 9:25/9:35 AM ET, Phases 1-3 Sunday 6:00 AM. Sentiment data accumulates in `data/sentiment.csv`.
+**Position reconciliation** (Phase 5): Before trading, `reconcile_positions()` syncs `open_positions.json` against Alpaca's actual positions to prevent drift from manual trades. Skipped in `--dry-run`. Fails safe — keeps local positions unchanged if Alpaca API fails. Uses reverse `alpaca_symbol_map` from `CFG` to translate Alpaca symbols back to yfinance tickers.
+
+**FinBERT sentiment**: `src/sentiment.py` lazy-loads ProsusAI/finbert on first call. Container memory raised to 2G (model needs ~500MB RAM, CPU-only PyTorch). Sentiment accumulates in `data/sentiment.csv`; Phase 4 fetches live sentiment for signal reasoning.
+
+VPS cron: Phases 4+5 weekdays 9:25/9:35 AM ET, Phases 1-3 Sunday 6:00 AM.
 
 ## Investment Portfolio Tracker (Finance)
 - `/investments` route in finance frontend
@@ -149,6 +154,7 @@ APScheduler inside finance backend:
 - Text: #F1F5F9 (primary) | #94A3B8 (muted)
 - Success: #10B981 | Warning: #F59E0B | Danger: #EF4444
 - Font: Inter / system-ui | Nav height: 56px
+- Finance charts: Green (#34D399) = inflow, Red (#F87171) = outflow
 
 ## Safe-Change Rules
 - Never modify JWT_SECRET — shared across all 10 containers
