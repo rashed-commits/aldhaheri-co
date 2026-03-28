@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.db import get_db
 from backend.models import Transaction, TransactionOut
-from backend.notifications import send_telegram_notification, send_category_help_request, send_duplicate_alert
+from backend.notifications import send_telegram_notification, send_category_help_request, send_duplicate_alert, send_transfer_help_request
 from backend.parser import parse_sms
 
 logger = logging.getLogger(__name__)
@@ -168,8 +168,19 @@ async def receive_sms(
     # priority chain: merchant history → keyword categorizer → Claude guess.
     from backend.categorizer import categorize
 
+    is_cheque = txn_type in ("CHEQUE_DEPOSIT", "CHEQUE_PAYMENT")
+    flow_type = parsed.get("flow_type", "Outflow")
+
     if is_transfer:
         category = "Transfer"
+    elif is_cheque:
+        # All cheque inflows = Real Estate Income, outflows = Real Estate Expenses
+        if flow_type == "Inflow":
+            merchant = "Real Estate Income"
+            category = "Real Estate Income"
+        else:
+            merchant = "Real Estate Expenses"
+            category = "Real Estate Expenses"
     else:
         # 1. Cross-reference previous transactions for this merchant
         history_category = await lookup_category_by_merchant(db, merchant) if merchant else None
@@ -178,7 +189,7 @@ async def receive_sms(
             logger.info("Category from merchant history: %s -> %s", merchant, category)
         else:
             # 2. Keyword categorizer
-            cat_merchant, cat_category = categorize(sms_text, parsed.get("flow_type", "Outflow"))
+            cat_merchant, cat_category = categorize(sms_text, flow_type)
             if cat_category != "Other":
                 category = cat_category
                 if not merchant:
@@ -186,7 +197,7 @@ async def receive_sms(
                 logger.info("Category from keyword categorizer: %s -> %s", merchant, category)
             # 3. Otherwise keep Claude's category guess from parser.py
 
-    needs_help = not is_transfer and category in UNCATEGORIZED
+    needs_help = not is_transfer and not is_cheque and category in UNCATEGORIZED
 
     txn = Transaction(
         sms_raw=sms_text,
@@ -248,10 +259,19 @@ async def receive_sms(
         )
         suspected_duplicate = dup_result.scalar_one_or_none()
 
+    # For non-internal transfers with no merchant, ask on Telegram
+    transfer_needs_help = (
+        is_transfer
+        and txn.category == "Transfer"
+        and not txn.merchant
+    )
+
     try:
         await send_telegram_notification(txn)
         if suspected_duplicate:
             await send_duplicate_alert(txn, suspected_duplicate)
+        elif transfer_needs_help:
+            await send_transfer_help_request(txn)
         # 4. If still uncategorized after all attempts, ask on Telegram
         elif needs_help and merchant:
             await send_category_help_request(merchant, txn)
