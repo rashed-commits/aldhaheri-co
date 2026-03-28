@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.db import get_db
 from backend.models import Transaction, TransactionOut
-from backend.notifications import send_telegram_notification, send_category_help_request, send_duplicate_alert, send_transfer_help_request
+from backend.notifications import send_telegram_notification, send_category_help_request, send_duplicate_alert, send_transfer_help_request, send_balance_imbalance_alert
 from backend.parser import parse_sms
 
 logger = logging.getLogger(__name__)
@@ -259,12 +259,8 @@ async def receive_sms(
         )
         suspected_duplicate = dup_result.scalar_one_or_none()
 
-    # For non-internal transfers with no merchant, ask on Telegram
-    transfer_needs_help = (
-        is_transfer
-        and txn.category == "Transfer"
-        and not txn.merchant
-    )
+    # Every non-internal transfer needs manual categorization
+    transfer_needs_help = is_transfer and txn.category == "Transfer"
 
     try:
         await send_telegram_notification(txn)
@@ -275,6 +271,28 @@ async def receive_sms(
         # 4. If still uncategorized after all attempts, ask on Telegram
         elif needs_help and merchant:
             await send_category_help_request(merchant, txn)
+
+        # Balance check for Internal Transfers and Credit Card Payments
+        if txn.category in ("Internal Transfers", "Credit Card Payment"):
+            cat = txn.category
+            inflow_result = await db.execute(
+                select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+                    Transaction.deleted == False,
+                    Transaction.category == cat,
+                    Transaction.flow_type == "Inflow",
+                )
+            )
+            outflow_result = await db.execute(
+                select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+                    Transaction.deleted == False,
+                    Transaction.category == cat,
+                    Transaction.flow_type == "Outflow",
+                )
+            )
+            total_inflow = float(inflow_result.scalar() or 0)
+            total_outflow = float(outflow_result.scalar() or 0)
+            if abs(total_inflow - total_outflow) > 0.01:
+                await send_balance_imbalance_alert(cat, total_inflow, total_outflow)
     except Exception as e:
         logger.error("Telegram notification error: %s", e)
 

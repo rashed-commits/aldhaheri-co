@@ -112,20 +112,21 @@ async def send_duplicate_alert(new_txn, existing_txn) -> None:
 
 
 async def send_transfer_help_request(txn) -> None:
-    """Ask the user on Telegram for the purpose/merchant of a blank transfer."""
+    """Ask the user on Telegram to categorize a transfer."""
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         return
 
     try:
         amount_str = f"{txn.currency} {txn.amount:,.2f}"
+        merchant_line = f"Recipient: {txn.merchant}\n" if txn.merchant else ""
         message = (
-            "\U0001f4b8 Transfer — Who was this to?\n\n"
+            "\U0001f4b8 Transfer — Please categorize\n\n"
             f"Amount: {amount_str}\n"
+            f"{merchant_line}"
             f"Account: {txn.account or 'N/A'}\n"
             f"Date: {txn.date} at {txn.time or 'N/A'}\n"
             f"Transaction #{txn.id}\n\n"
-            "No merchant/recipient detected. Please reply with the "
-            "recipient name and purpose, or update it on the dashboard.\n\n"
+            "Please update the category on the dashboard.\n\n"
             f"\U0001f449 {DASHBOARD_URL}"
         )
 
@@ -139,6 +140,34 @@ async def send_transfer_help_request(txn) -> None:
                 logger.warning("Telegram API returned %d: %s", response.status_code, response.text)
     except Exception as e:
         logger.error("Transfer help request failed: %s", e)
+
+
+async def send_balance_imbalance_alert(category: str, inflow: float, outflow: float) -> None:
+    """Warn user when Internal Transfers or CC Payments inflow != outflow."""
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+
+    try:
+        diff = abs(inflow - outflow)
+        message = (
+            "\u26a0\ufe0f Balance Imbalance — {category}\n\n"
+            f"Total Inflow:  AED {inflow:,.2f}\n"
+            f"Total Outflow: AED {outflow:,.2f}\n"
+            f"Difference:    AED {diff:,.2f}\n\n"
+            "These should be balanced. Please review on the dashboard.\n\n"
+            f"\U0001f449 {DASHBOARD_URL}"
+        ).replace("{category}", category)
+
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(url, json={
+                "chat_id": TELEGRAM_CHAT_ID,
+                "text": message,
+            })
+            if response.status_code != 200:
+                logger.warning("Telegram API returned %d: %s", response.status_code, response.text)
+    except Exception as e:
+        logger.error("Balance imbalance alert failed: %s", e)
 
 
 async def send_unidentified_alert() -> None:
