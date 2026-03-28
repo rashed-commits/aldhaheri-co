@@ -5,6 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 Monorepo for all aldhaheri.co services. SSO hub + four subdomain projects (finance, market, realestate, trade), deployed from one repo on a single DigitalOcean droplet. Single-user system (one username/password).
 
+**Market Intel is shelved** — container serves a static "Coming Back Soon" page only. Scraper, API routes, and daily cron are disabled. Data volume (`market-data`) is preserved.
+
 **No test suite or CI/CD pipeline exists.** No pytest, jest, or GitHub Actions.
 
 ## Commands
@@ -57,7 +59,7 @@ bash deploy.sh   # Commits, pushes, SSHs to VPS, pulls, rebuilds
 ## Tech Stack
 - **Hub**: React 19 + Vite + Tailwind 4, FastAPI + python-jose (JWT)
 - **Finance**: React 18 + Recharts + Tailwind 3, FastAPI + async SQLAlchemy + aiosqlite + Anthropic SDK
-- **Market**: Flask + Vanilla JS, OpenAI GPT-4o-mini, Apify, Tavily
+- **Market**: Flask + Vanilla JS — **shelved**, static page only
 - **Real Estate**: React 18 + Vite + Recharts, FastAPI, Playwright + BeautifulSoup scrapers
 - **Trade**: React 19 + Vite + Recharts, FastAPI, XGBoost + FinBERT sentiment, Alpaca SDK
 - **Databases**: All SQLite (no Postgres). Trade uses JSON files instead of a DB.
@@ -130,8 +132,8 @@ CLI-driven via `trade/main.py --phase N` (add `--dry-run` to skip real trades):
 ### Trade (VPS crontab, ET timezone)
 Phases 4+5 weekdays 9:25/9:35 AM ET, Phases 1-3 Sunday 6:00 AM.
 
-### Market (VPS crontab)
-Daily scraper pipeline.
+### Market (VPS crontab) — DISABLED
+Daily scraper pipeline — **must be removed from VPS crontab manually**.
 
 ## Investment Portfolio Tracker (Finance)
 - `/investments` route in finance frontend

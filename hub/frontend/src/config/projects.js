@@ -8,7 +8,7 @@ const projects = [
   },
   {
     name: 'UAE Market Intel',
-    description: 'UAE stock and market research dashboard',
+    description: 'Coming back soon',
     icon: '\uD83D\uDCCA',
     url: 'https://market.aldhaheri.co',
     healthUrl: 'https://market.aldhaheri.co/health',
