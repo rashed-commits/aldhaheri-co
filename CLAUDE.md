@@ -198,3 +198,4 @@ Per-project `.env.example` and `deploy.sh` in subdirectories are leftovers — u
 ## VPS
 - **IP**: 165.232.162.72 | **Repo**: `/opt/aldhaheri-co` | **Backups**: `/opt/backups/`
 - Check status: `ssh root@165.232.162.72 "cd /opt/aldhaheri-co && docker compose ps"`
+- **SSH access is available** — Claude Code can SSH into the VPS to manage crontab, restart containers, check logs, edit nginx configs, run deployments, and perform other server-side operations directly
