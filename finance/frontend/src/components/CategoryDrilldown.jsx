@@ -3,10 +3,14 @@ import { useMemo } from "react";
 const fmtAmt = (v) =>
   new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
 
-export default function CategoryDrilldown({ category, flowType, transactions, onClose }) {
+export default function CategoryDrilldown({ category, merchant, flowType, transactions, onClose }) {
   const filtered = useMemo(
-    () => transactions.filter((t) => t.category === category && t.flow_type === flowType),
-    [transactions, category, flowType]
+    () => transactions.filter((t) => {
+      if (t.flow_type !== flowType) return false;
+      if (merchant) return (t.merchant || "Unknown") === merchant;
+      return t.category === category;
+    }),
+    [transactions, category, merchant, flowType]
   );
 
   const total = useMemo(() => filtered.reduce((s, t) => s + t.value_aed, 0), [filtered]);
@@ -22,7 +26,7 @@ export default function CategoryDrilldown({ category, flowType, transactions, on
       >
         <div className="flex items-center justify-between p-5 border-b border-gray-800">
           <div>
-            <h2 className="text-lg font-bold text-gray-100">{category}</h2>
+            <h2 className="text-lg font-bold text-gray-100">{merchant || category}</h2>
             <p className="text-sm text-gray-500">
               {flowType === "Inflow" ? "Income" : "Spend"} — {filtered.length} transactions — Total: AED {fmtAmt(total)}
             </p>

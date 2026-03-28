@@ -379,6 +379,8 @@ function Dashboard() {
     const monthMap = {};
     const catSpend = {};
     const catIncome = {};
+    const merchSpend = {};
+    const merchIncome = {};
     const dayMap = {};
     let inflow = 0;
     let outflow = 0;
@@ -402,6 +404,14 @@ function Dashboard() {
         catIncome[t.category] = (catIncome[t.category] || 0) + t.value_aed;
       }
 
+      // By merchant
+      const merch = t.merchant || "Unknown";
+      if (t.flow_type === "Outflow") {
+        merchSpend[merch] = (merchSpend[merch] || 0) + t.value_aed;
+      } else {
+        merchIncome[merch] = (merchIncome[merch] || 0) + t.value_aed;
+      }
+
       // By day
       if (t.date) {
         if (!dayMap[t.date]) dayMap[t.date] = { date: t.date, inflow: 0, outflow: 0 };
@@ -417,9 +427,11 @@ function Dashboard() {
     const by_month = Object.values(monthMap).sort((a, b) => (a.month > b.month ? 1 : -1));
     const by_category_spend = Object.entries(catSpend).map(([category, total]) => ({ category, total })).sort((a, b) => b.total - a.total);
     const by_category_income = Object.entries(catIncome).map(([category, total]) => ({ category, total })).sort((a, b) => b.total - a.total);
+    const by_merchant_spend = Object.entries(merchSpend).map(([category, total]) => ({ category, total })).sort((a, b) => b.total - a.total);
+    const by_merchant_income = Object.entries(merchIncome).map(([category, total]) => ({ category, total })).sort((a, b) => b.total - a.total);
     const by_day = Object.values(dayMap).sort((a, b) => (a.date > b.date ? 1 : -1));
 
-    return { by_month, by_category_spend, by_category_income, by_day, inflow, outflow };
+    return { by_month, by_category_spend, by_category_income, by_merchant_spend, by_merchant_income, by_day, inflow, outflow };
   }, [summary, activeCategories, filteredTransactions]);
 
   const handleLogout = () => {
@@ -579,6 +591,27 @@ function Dashboard() {
           </div>
         </div>
 
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
+            <h2 className="text-sm font-semibold text-gray-400 mb-4">
+              Spend by Merchant
+            </h2>
+            <CategoryPieChart
+              data={filtered.by_merchant_spend}
+              onCategoryClick={(merch) => setDrilldown({ merchant: merch, flowType: "Outflow" })}
+            />
+          </div>
+          <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
+            <h2 className="text-sm font-semibold text-gray-400 mb-4">
+              Income by Merchant
+            </h2>
+            <CategoryPieChart
+              data={filtered.by_merchant_income}
+              onCategoryClick={(merch) => setDrilldown({ merchant: merch, flowType: "Inflow" })}
+            />
+          </div>
+        </div>
+
         <FinanceSummary
           filtered={filtered}
           transactions={transactions}
@@ -603,6 +636,7 @@ function Dashboard() {
       {drilldown && (
         <CategoryDrilldown
           category={drilldown.category}
+          merchant={drilldown.merchant}
           flowType={drilldown.flowType}
           transactions={filteredTransactions}
           onClose={() => setDrilldown(null)}
