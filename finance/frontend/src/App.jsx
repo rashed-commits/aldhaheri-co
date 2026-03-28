@@ -238,6 +238,7 @@ function Dashboard() {
   const [activeYears, setActiveYears] = useState(null);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [search, setSearch] = useState("");
   const [drilldown, setDrilldown] = useState(null);
 
   const loadAllTransactions = useCallback(async () => {
@@ -352,12 +353,23 @@ function Dashboard() {
     return true;
   }, [activeAccounts, activeMonths, activeYears, dateFrom, dateTo]);
 
-  // Filtered transactions (all three filters)
+  // Filtered transactions (all filters + search)
   const filteredTransactions = useMemo(() => {
-    return transactions.filter(
+    let rows = transactions.filter(
       (t) => activeCategories?.has(t.category) && matchesFilters(t)
     );
-  }, [transactions, activeCategories, matchesFilters]);
+    if (search) {
+      const q = search.toLowerCase();
+      rows = rows.filter(
+        (t) =>
+          (t.merchant && t.merchant.toLowerCase().includes(q)) ||
+          (t.category && t.category.toLowerCase().includes(q)) ||
+          (t.account && t.account.toLowerCase().includes(q)) ||
+          (t.transaction_type && t.transaction_type.toLowerCase().includes(q))
+      );
+    }
+    return rows;
+  }, [transactions, activeCategories, matchesFilters, search]);
 
   const filtered = useMemo(() => {
     if (!summary || !activeCategories)
@@ -582,6 +594,8 @@ function Dashboard() {
             transactions={filteredTransactions}
             onRefresh={load}
             allCategories={allCategories}
+            search={search}
+            onSearchChange={setSearch}
           />
         </div>
       </main>

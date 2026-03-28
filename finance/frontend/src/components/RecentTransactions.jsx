@@ -43,8 +43,7 @@ function SortHeader({ label, field, sortField, sortDir, onSort, align }) {
   );
 }
 
-export default function RecentTransactions({ transactions, onRefresh, allCategories }) {
-  const [search, setSearch] = useState("");
+export default function RecentTransactions({ transactions, onRefresh, allCategories, search, onSearchChange }) {
   const [editing, setEditing] = useState(null);
   const [editValue, setEditValue] = useState("");
   const [saving, setSaving] = useState(false);
@@ -89,16 +88,6 @@ export default function RecentTransactions({ transactions, onRefresh, allCategor
 
   const filtered = useMemo(() => {
     let rows = transactions;
-    if (search) {
-      const q = search.toLowerCase();
-      rows = rows.filter(
-        (t) =>
-          (t.merchant && t.merchant.toLowerCase().includes(q)) ||
-          (t.category && t.category.toLowerCase().includes(q)) ||
-          (t.account && t.account.toLowerCase().includes(q)) ||
-          (t.transaction_type && t.transaction_type.toLowerCase().includes(q))
-      );
-    }
     if (sortField) {
       rows = [...rows].sort((a, b) => {
         let va = a[sortField];
@@ -118,7 +107,7 @@ export default function RecentTransactions({ transactions, onRefresh, allCategor
       });
     }
     return rows;
-  }, [transactions, search, sortField, sortDir]);
+  }, [transactions, sortField, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paged = filtered.slice((localPage - 1) * PAGE_SIZE, localPage * PAGE_SIZE);
@@ -274,8 +263,8 @@ export default function RecentTransactions({ transactions, onRefresh, allCategor
       <input
         type="text"
         placeholder="Search by merchant, category, account, type..."
-        value={search}
-        onChange={(e) => { setSearch(e.target.value); setLocalPage(1); }}
+        value={search || ""}
+        onChange={(e) => { onSearchChange(e.target.value); setLocalPage(1); }}
         className="w-full mb-4 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500"
       />
       <div className="overflow-x-auto">
