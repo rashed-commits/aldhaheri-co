@@ -51,6 +51,7 @@ cd <project>/frontend && npx eslint .
 ### Deploy
 ```bash
 bash deploy.sh   # Commits, pushes, SSHs to VPS, pulls, rebuilds
+# WARNING: deploy.sh uses `git add .` — ensure .gitignore covers .env and sensitive files
 ```
 
 ## Tech Stack
@@ -65,7 +66,7 @@ bash deploy.sh   # Commits, pushes, SSHs to VPS, pulls, rebuilds
 ## Architecture
 
 ### Docker Compose structure
-Root `docker-compose.yml` uses `include:` to merge per-project compose files. Hub services are defined directly in root. Each per-project compose file references `../.env` (the single root env file) and can be started independently.
+Root `docker-compose.yml` uses `include:` to merge per-project compose files. Hub services are defined directly in root. Each per-project compose file references `../.env` (the single root env file) and can be started independently. Frontend containers use multi-stage Docker builds (node → nginx) with per-project `nginx.conf` files for SPA routing (`try_files $uri $uri/ /index.html`).
 
 ### Services (10 total)
 | Service | Port | Health |
@@ -89,7 +90,7 @@ Root `docker-compose.yml` uses `include:` to merge per-project compose files. Hu
 3. **Password only** — fallback when TOTP not enabled
 
 ### Code patterns
-- **Thin routes + service logic**: Routes in `/routers/` handle HTTP only; business logic in service files (`parser.py`, `notifications.py`, `session_store.py`)
+- **Thin routes + service logic**: Routes in `/routers/` handle HTTP only; business logic in service files (`parser.py`, `notifications.py`, `session_store.py`, `sweep.py`)
 - **Soft-delete everywhere**: All deletes set `deleted=True`, queries filter `WHERE deleted=False`
 - **Async DB**: Finance and Hub use async SQLAlchemy + aiosqlite. Real Estate uses `?immutable=1`. Market uses sync sqlite3. Trade reads JSON files.
 - **File placement**: New API routes → `<project>/backend/routers/`, new UI components → `<project>/frontend/src/components/`, DB models → `<project>/backend/models.py`
@@ -126,7 +127,11 @@ CLI-driven via `trade/main.py --phase N` (add `--dry-run` to skip real trades):
 
 **FinBERT sentiment**: `src/sentiment.py` lazy-loads ProsusAI/finbert on first call. Container memory raised to 2G (model needs ~500MB RAM, CPU-only PyTorch). Sentiment accumulates in `data/sentiment.csv`; Phase 4 fetches live sentiment for signal reasoning.
 
-VPS cron: Phases 4+5 weekdays 9:25/9:35 AM ET, Phases 1-3 Sunday 6:00 AM.
+### Trade (VPS crontab, ET timezone)
+Phases 4+5 weekdays 9:25/9:35 AM ET, Phases 1-3 Sunday 6:00 AM.
+
+### Market (VPS crontab)
+Daily scraper pipeline.
 
 ## Investment Portfolio Tracker (Finance)
 - `/investments` route in finance frontend
@@ -137,11 +142,12 @@ VPS cron: Phases 4+5 weekdays 9:25/9:35 AM ET, Phases 1-3 Sunday 6:00 AM.
 - Partial close splits the lot — original keeps remaining shares, sold portion becomes closed trade
 - Seed data: VOO positions (44 shares, 3 lots) auto-inserted on first startup if empty
 
-## Scheduled Jobs (Finance)
-APScheduler inside finance backend:
-- **00:00 UTC**: Zero-amount transaction sweep
-- **10:00 UTC**: Telegram alert for unidentified transactions
-- **1st of month 09:00 UTC**: Statement reminder
+## Scheduled Jobs
+
+### Finance (APScheduler in `main.py` lifespan)
+- **00:00 UTC**: Zero-amount transaction sweep (`sweep.py`)
+- **10:00 UTC**: Telegram alert for unidentified transactions (`notifications.py`)
+- **1st of month 09:00 UTC**: Statement reminder (`notifications.py`)
 
 ## Coding Conventions
 - **Python**: PEP8, type hints, async handlers, APIRouter pattern
