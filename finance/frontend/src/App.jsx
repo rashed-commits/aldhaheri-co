@@ -564,12 +564,9 @@ function Dashboard() {
           </div>
           <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
             <h2 className="text-sm font-semibold text-gray-400 mb-4">
-              Spend by Category
+              Cumulative Inflow vs Outflow
             </h2>
-            <CategoryPieChart
-              data={filtered.by_category_spend}
-              onCategoryClick={(cat) => setDrilldown({ category: cat, flowType: "Outflow" })}
-            />
+            <CumulativeChart data={filtered.by_day} />
           </div>
         </div>
 
@@ -585,13 +582,25 @@ function Dashboard() {
           </div>
           <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
             <h2 className="text-sm font-semibold text-gray-400 mb-4">
-              Cumulative Inflow vs Outflow
+              Income by Merchant
             </h2>
-            <CumulativeChart data={filtered.by_day} />
+            <CategoryPieChart
+              data={filtered.by_merchant_income}
+              onCategoryClick={(merch) => setDrilldown({ merchant: merch, flowType: "Inflow" })}
+            />
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
+            <h2 className="text-sm font-semibold text-gray-400 mb-4">
+              Spend by Category
+            </h2>
+            <CategoryPieChart
+              data={filtered.by_category_spend}
+              onCategoryClick={(cat) => setDrilldown({ category: cat, flowType: "Outflow" })}
+            />
+          </div>
           <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
             <h2 className="text-sm font-semibold text-gray-400 mb-4">
               Spend by Merchant
@@ -599,15 +608,6 @@ function Dashboard() {
             <CategoryPieChart
               data={filtered.by_merchant_spend}
               onCategoryClick={(merch) => setDrilldown({ merchant: merch, flowType: "Outflow" })}
-            />
-          </div>
-          <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-            <h2 className="text-sm font-semibold text-gray-400 mb-4">
-              Income by Merchant
-            </h2>
-            <CategoryPieChart
-              data={filtered.by_merchant_income}
-              onCategoryClick={(merch) => setDrilldown({ merchant: merch, flowType: "Inflow" })}
             />
           </div>
         </div>
