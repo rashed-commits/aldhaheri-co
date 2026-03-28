@@ -98,6 +98,7 @@ Root `docker-compose.yml` uses `include:` to merge per-project compose files. Hu
 - **Async DB**: Finance and Hub use async SQLAlchemy + aiosqlite. Real Estate uses `?immutable=1`. Market uses sync sqlite3. Trade reads JSON files.
 - **File placement**: New API routes → `<project>/backend/routers/`, new UI components → `<project>/frontend/src/components/`, DB models → `<project>/backend/models.py`
 - **Lifted filter state**: Finance dashboard search is owned by `Dashboard` in `App.jsx` (not `RecentTransactions`). All filters — toggle pills, date range, and text search — feed into one `filteredTransactions` memo that drives charts, stat cards, summary, and the transaction table.
+- **Dashboard charts** (top to bottom, 2-col grid): Monthly Inflow vs Outflow | Cumulative Inflow vs Outflow | Income by Category | Income by Merchant | Spend by Category | Spend by Merchant. Category and merchant pie charts share `CategoryPieChart.jsx`; clicking a slice opens `CategoryDrilldown` filtered by category or merchant.
 
 ### Data paths (inside containers)
 - Finance DB: `/data/finance.db` (Docker volume `finance-data`), statements: `/data/statements` (separate volume `finance-statements`)
@@ -122,9 +123,13 @@ Configs in `nginx/` directory, deployed to `/etc/nginx/sites-available/` on VPS.
 - **Telegram chatbot** (`finance/backend/telegram_bot.py`): mirrors web chatbot via long-polling, auto-executes actions without approval
 
 ### Transaction category resolution (webhook.py)
-**Transfers**: Always categorized as "Transfer". Confirmation SMS (`Confirmation recd. from ...`) is intercepted before parsing — it updates the original transfer's merchant with the recipient name and is not stored as a separate transaction. After saving a `TRANSFER` type, the system checks for a same-amount opposite-flow pair on the same day; if found, both are re-categorized as "Internal Transfers". If a transfer has no merchant after all processing, a Telegram message asks the user for the recipient/purpose.
+**Transfers**: Always categorized as "Transfer" (temporary — user must manually recategorize). Confirmation SMS (`Confirmation recd. from ...`) is intercepted before parsing — it updates the original transfer's merchant with the recipient name and is not stored as a separate transaction. After saving a `TRANSFER` type, the system checks for a same-amount opposite-flow pair on the same day; if found, both are re-categorized as "Internal Transfers". Every non-internal transfer triggers a Telegram message prompting the user to categorize it.
 
 **Cheques**: Auto-categorized — inflows become "Real Estate Income", outflows become "Real Estate Expenses" (both merchant and category).
+
+**Refunds**: Merchant is always set to "Refund" regardless of the original merchant name.
+
+**Balance monitoring**: After saving an Internal Transfer or Credit Card Payment, the system sums all inflows vs outflows for that category and sends a Telegram warning if they are imbalanced.
 
 **Non-transfers/non-cheques**: Priority order: merchant history → keyword categorizer (`categorizer.py`, 443 rules) → Claude parser guess → Telegram help request
 

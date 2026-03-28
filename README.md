@@ -275,9 +275,27 @@ Set up on Android to automatically forward bank SMS:
 
 The webhook handles bank transfers with automatic reconciliation:
 
-1. **All transfers** start as Category "Transfer", Merchant blank (or extracted from SMS if present)
+1. **All transfers** start as Category "Transfer", Merchant blank (or extracted from SMS if present) — a Telegram message prompts the user to categorize each one
 2. **Confirmation SMS** (`Confirmation recd. from ...`) is not stored as a new transaction — it updates the original transfer's merchant with the recipient name
 3. **Internal transfers** (Cr/Dr pair with same amount on same day) are automatically re-categorized as "Internal Transfers"
+
+### Auto-Categorization Rules
+
+- **Cheques**: Inflows → "Real Estate Income", Outflows → "Real Estate Expenses"
+- **Refunds**: Merchant is always set to "Refund"
+- **Balance monitoring**: Internal Transfers and Credit Card Payments trigger a Telegram warning if total inflows ≠ total outflows
+
+### Dashboard Charts
+
+Six charts in a 2-column grid:
+
+| Left | Right |
+|---|---|
+| Monthly Inflow vs Outflow | Cumulative Inflow vs Outflow |
+| Income by Category | Income by Merchant |
+| Spend by Category | Spend by Merchant |
+
+All pie charts are clickable — clicking a slice opens a drilldown modal with the filtered transactions.
 
 ## Archived Repos
 
