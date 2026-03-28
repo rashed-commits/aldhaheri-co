@@ -68,7 +68,7 @@ bash deploy.sh   # Commits, pushes, SSHs to VPS, pulls, rebuilds
 ## Architecture
 
 ### Docker Compose structure
-Root `docker-compose.yml` uses `include:` to merge per-project compose files. Hub services are defined directly in root. Each per-project compose file references `../.env` (the single root env file) and can be started independently. Frontend containers use multi-stage Docker builds (node → nginx) with per-project `nginx.conf` files for SPA routing (`try_files $uri $uri/ /index.html`).
+Root `docker-compose.yml` uses `include:` to merge per-project compose files. Hub services are defined directly in root. Each per-project compose file references `../.env` (the single root env file) and can be started independently. Frontend containers use multi-stage Docker builds (node → nginx) with per-project `nginx.conf` files for SPA routing (`try_files $uri $uri/ /index.html`). Finance frontend bakes `VITE_API_URL` and `VITE_API_KEY` as Docker build args — other frontends have no build-time env vars.
 
 ### Services (10 total)
 | Service | Port | Health |
@@ -90,6 +90,7 @@ Root `docker-compose.yml` uses `include:` to merge per-project compose files. Hu
 1. **WebAuthn/Passkey** (primary) — `hub/backend/routers/webauthn.py`
 2. **Password + TOTP** — password returns `totp_pending` token → verify 6-digit code → `hub/backend/routers/totp.py`
 3. **Password only** — fallback when TOTP not enabled
+- Rate-limited: 5 attempts / 5 min, 15-min lockout (slowapi)
 
 ### Code patterns
 - **Thin routes + service logic**: Routes in `/routers/` handle HTTP only; business logic in service files (`parser.py`, `notifications.py`, `session_store.py`, `sweep.py`)
@@ -98,11 +99,19 @@ Root `docker-compose.yml` uses `include:` to merge per-project compose files. Hu
 - **File placement**: New API routes → `<project>/backend/routers/`, new UI components → `<project>/frontend/src/components/`, DB models → `<project>/backend/models.py`
 
 ### Data paths (inside containers)
-- Finance DB: `/data/finance.db` (Docker volume `finance-data`)
+- Finance DB: `/data/finance.db` (Docker volume `finance-data`), statements: `/data/statements` (separate volume `finance-statements`)
 - Hub DB: `/data/` (Docker volume `hub-data`)
 - Market DB: `/app/data/market_intel.db`
-- Real Estate DB: `data/listings.db` (auto-created by scrapers)
-- Trade output: `output/` (signals, positions JSON) and `model/saved/` (XGBoost model, metrics)
+- Real Estate DB: `data/listings.db` (local bind mount `./data`, not a named volume)
+- Trade: four named volumes — `trade-data`, `trade-model`, `trade-output`, `trade-logs`
+
+### Container resources
+- All frontends/backends: 512M memory, 0.5 CPU
+- **Trade bot**: 2G memory, 1.0 CPU (FinBERT model needs ~500MB)
+- Logging: `json-file` driver, 10MB max × 3 files per service
+
+### Nginx (VPS reverse proxy)
+Configs in `nginx/` directory, deployed to `/etc/nginx/sites-available/` on VPS. Each subdomain proxies to the corresponding Docker port. Finance is the only service without a repo-tracked nginx config (uses Docker port mapping directly).
 
 ## Finance Chatbot Architecture
 - `POST /api/chat` rebuilds full DB context from scratch on **every message** (totals, categories, merchant/category search results, last 100 transactions) — the model always sees current data
