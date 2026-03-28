@@ -132,8 +132,8 @@ CLI-driven via `trade/main.py --phase N` (add `--dry-run` to skip real trades):
 ### Trade (VPS crontab, ET timezone)
 Phases 4+5 weekdays 9:25/9:35 AM ET, Phases 1-3 Sunday 6:00 AM.
 
-### Market (VPS crontab) — DISABLED
-Daily scraper pipeline — **must be removed from VPS crontab manually**.
+### Market — DISABLED
+Daily scraper cron removed from VPS on 2026-03-28.
 
 ## Investment Portfolio Tracker (Finance)
 - `/investments` route in finance frontend
