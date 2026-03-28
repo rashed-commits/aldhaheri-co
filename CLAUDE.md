@@ -122,9 +122,11 @@ Configs in `nginx/` directory, deployed to `/etc/nginx/sites-available/` on VPS.
 - **Telegram chatbot** (`finance/backend/telegram_bot.py`): mirrors web chatbot via long-polling, auto-executes actions without approval
 
 ### Transaction category resolution (webhook.py)
-**Transfers**: Always categorized as "Transfer". Confirmation SMS (`Confirmation recd. from ...`) is intercepted before parsing — it updates the original transfer's merchant with the recipient name and is not stored as a separate transaction. After saving a `TRANSFER` type, the system checks for a same-amount opposite-flow pair on the same day; if found, both are re-categorized as "Internal Transfers".
+**Transfers**: Always categorized as "Transfer". Confirmation SMS (`Confirmation recd. from ...`) is intercepted before parsing — it updates the original transfer's merchant with the recipient name and is not stored as a separate transaction. After saving a `TRANSFER` type, the system checks for a same-amount opposite-flow pair on the same day; if found, both are re-categorized as "Internal Transfers". If a transfer has no merchant after all processing, a Telegram message asks the user for the recipient/purpose.
 
-**Non-transfers**: Priority order: merchant history → keyword categorizer (`categorizer.py`, 443 rules) → Claude parser guess → Telegram help request
+**Cheques**: Auto-categorized — inflows become "Real Estate Income", outflows become "Real Estate Expenses" (both merchant and category).
+
+**Non-transfers/non-cheques**: Priority order: merchant history → keyword categorizer (`categorizer.py`, 443 rules) → Claude parser guess → Telegram help request
 
 ### Webhook ingestion guards (webhook.py)
 Rejects: empty/short SMS, unresolved Tasker variables, failed/declined keywords, pending/uncleared transactions (e.g. "subject to verification", "pending clearance", "cheque will be processed"), exact duplicate SMS, zero-amount transactions, confirmation SMS (processed as merchant update, not new transaction). Cheque deposits are only recorded once a separate confirmation SMS arrives (pending cheque notifications are filtered out). After save, checks for suspected repeats (same merchant + amount + date) and alerts via Telegram.
