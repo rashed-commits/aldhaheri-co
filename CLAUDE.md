@@ -97,6 +97,7 @@ Root `docker-compose.yml` uses `include:` to merge per-project compose files. Hu
 - **Soft-delete everywhere**: All deletes set `deleted=True`, queries filter `WHERE deleted=False`
 - **Async DB**: Finance and Hub use async SQLAlchemy + aiosqlite. Real Estate uses `?immutable=1`. Market uses sync sqlite3. Trade reads JSON files.
 - **File placement**: New API routes → `<project>/backend/routers/`, new UI components → `<project>/frontend/src/components/`, DB models → `<project>/backend/models.py`
+- **Lifted filter state**: Finance dashboard search is owned by `Dashboard` in `App.jsx` (not `RecentTransactions`). All filters — toggle pills, date range, and text search — feed into one `filteredTransactions` memo that drives charts, stat cards, summary, and the transaction table.
 
 ### Data paths (inside containers)
 - Finance DB: `/data/finance.db` (Docker volume `finance-data`), statements: `/data/statements` (separate volume `finance-statements`)

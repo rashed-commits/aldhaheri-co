@@ -17,6 +17,7 @@ Key features:
 - **Auto-categorization** by merchant history, 443-rule keyword lookup, Claude AI, and Telegram fallback
 - **Pending transaction filter** — automatically rejects uncleared/pending SMS (e.g. cheque deposits awaiting clearance) so only confirmed transactions are recorded
 - **Investment portfolio tracker** (`/investments`) — tracks stock/ETF positions with live prices via yfinance, USD/AED conversion, per-lot P&L, historical value chart, close positions (full or partial) with realized P&L tracking and trade history. Shows price update timestamp (UAE time) next to the exchange rate.
+- **Unified search filtering** — the transaction search box filters charts, stat cards, and summary in real time (same behavior as the category/account/date toggle filters)
 
 ### Market — [market.aldhaheri.co](https://market.aldhaheri.co) *(shelved)*
 UAE business signal intelligence. Currently offline — serves a static "Coming Back Soon" page. Scraper pipeline and API routes are disabled. Data volume is preserved.
