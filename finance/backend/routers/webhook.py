@@ -1,9 +1,10 @@
 import os
 import logging
 import re
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from sqlalchemy import select, func
+from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.db import get_db
@@ -98,6 +99,46 @@ async def receive_sms(
         logger.info("Skipped duplicate SMS: %s", sms_text[:80])
         return {"status": "skipped", "reason": "duplicate SMS"}
 
+    # --- Confirmation SMS handling ---
+    # These are not new transactions — they confirm an earlier transfer and
+    # carry the recipient name.  Match to the original and update its merchant.
+    confirmation_match = re.match(
+        r"Confirmation recd\.\s*from\s+.+?:\s*AED\s*([\d,]+(?:\.\d+)?)\s+transferred\s+on\s+.+?\s+to\s+(.+?)\s+has been credited",
+        sms_text,
+    )
+    if confirmation_match:
+        conf_amount = float(confirmation_match.group(1).replace(",", ""))
+        conf_recipient = confirmation_match.group(2).strip()
+        today = datetime.now(timezone(timedelta(hours=4))).strftime("%m/%d/%Y")
+        result = await db.execute(
+            select(Transaction)
+            .where(
+                Transaction.deleted == False,
+                Transaction.amount == conf_amount,
+                Transaction.transaction_type == "TRANSFER_OUT",
+                Transaction.date == today,
+                Transaction.category == "Transfer",
+            )
+            .order_by(desc(Transaction.id))
+            .limit(1)
+        )
+        original = result.scalar_one_or_none()
+        if original and not original.merchant:
+            original.merchant = conf_recipient
+            await db.commit()
+            logger.info(
+                "Confirmation SMS updated txn %d merchant to %s",
+                original.id,
+                conf_recipient,
+            )
+        else:
+            logger.info(
+                "Confirmation SMS (AED %.2f to %s) — no matching transfer found",
+                conf_amount,
+                conf_recipient,
+            )
+        return {"status": "ok", "reason": "confirmation processed"}
+
     parsed = await parse_sms(sms_text)
 
     # Skip zero-amount transactions
@@ -110,34 +151,42 @@ async def receive_sms(
     account_map = {"XXX810002": "810002", "XXX920001": "920001"}
     account = account_map.get(account, account)
 
-    # For transfers, extract recipient as merchant
+    # For transfers, extract recipient as merchant from TRF OUT TO pattern
     merchant = parsed.get("merchant")
     category = parsed.get("category", "Other")
     txn_type = parsed.get("transaction_type", "UNKNOWN")
-    if txn_type in ("TRANSFER", "TRANSFER_OUT") and not merchant:
+    is_transfer = txn_type in ("TRANSFER", "TRANSFER_OUT")
+
+    if is_transfer and not merchant:
         m = re.search(r"TRF OUT TO (.+?)(?:\s*$)", sms_text)
         if m:
             merchant = m.group(1).strip()
 
-    # --- Category resolution (priority order) ---
-    # 1. Cross-reference previous transactions for this merchant
+    # --- Category resolution ---
+    # Transfers always start as "Transfer" — reconciliation may later
+    # change them to "Internal Transfers".  Non-transfers use the normal
+    # priority chain: merchant history → keyword categorizer → Claude guess.
     from backend.categorizer import categorize
 
-    history_category = await lookup_category_by_merchant(db, merchant) if merchant else None
-    if history_category:
-        category = history_category
-        logger.info("Category from merchant history: %s -> %s", merchant, category)
+    if is_transfer:
+        category = "Transfer"
     else:
-        # 2. Keyword categorizer
-        cat_merchant, cat_category = categorize(sms_text, parsed.get("flow_type", "Outflow"))
-        if cat_category != "Other":
-            category = cat_category
-            if not merchant:
-                merchant = cat_merchant
-            logger.info("Category from keyword categorizer: %s -> %s", merchant, category)
-        # 3. Otherwise keep Claude's category guess from parser.py
+        # 1. Cross-reference previous transactions for this merchant
+        history_category = await lookup_category_by_merchant(db, merchant) if merchant else None
+        if history_category:
+            category = history_category
+            logger.info("Category from merchant history: %s -> %s", merchant, category)
+        else:
+            # 2. Keyword categorizer
+            cat_merchant, cat_category = categorize(sms_text, parsed.get("flow_type", "Outflow"))
+            if cat_category != "Other":
+                category = cat_category
+                if not merchant:
+                    merchant = cat_merchant
+                logger.info("Category from keyword categorizer: %s -> %s", merchant, category)
+            # 3. Otherwise keep Claude's category guess from parser.py
 
-    needs_help = category in UNCATEGORIZED
+    needs_help = not is_transfer and category in UNCATEGORIZED
 
     txn = Transaction(
         sms_raw=sms_text,
@@ -157,6 +206,33 @@ async def receive_sms(
     await db.refresh(txn)
 
     logger.info("Stored transaction %d: %s", txn.id, txn.transaction_type)
+
+    # --- Internal transfer reconciliation ---
+    # When a Cr/Dr pair of the same amount arrives (e.g. between own accounts),
+    # mark both as "Internal Transfers".
+    if txn.transaction_type == "TRANSFER":
+        opposite_flow = "Outflow" if txn.flow_type == "Inflow" else "Inflow"
+        pair_result = await db.execute(
+            select(Transaction)
+            .where(
+                Transaction.id != txn.id,
+                Transaction.deleted == False,
+                Transaction.amount == txn.amount,
+                Transaction.transaction_type == "TRANSFER",
+                Transaction.flow_type == opposite_flow,
+                Transaction.date == txn.date,
+            )
+            .order_by(desc(Transaction.id))
+            .limit(1)
+        )
+        pair = pair_result.scalar_one_or_none()
+        if pair:
+            txn.category = "Internal Transfers"
+            txn.merchant = "Internal Transfers"
+            pair.category = "Internal Transfers"
+            pair.merchant = "Internal Transfers"
+            await db.commit()
+            logger.info("Internal transfer pair: %d <-> %d", txn.id, pair.id)
 
     # Check for suspected repeat transaction (same merchant + amount + date)
     suspected_duplicate = None

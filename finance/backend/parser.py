@@ -69,9 +69,9 @@ async def parse_sms(sms_text: str) -> dict[str, Any]:
             raw = re.sub(r'\n?```$', '', raw)
             raw = raw.strip()
         parsed = json.loads(raw)
-        if parsed.get("transaction_type") == "TRANSFER":
+        if parsed.get("transaction_type") in ("TRANSFER", "TRANSFER_OUT"):
             parsed["merchant"] = None
-            parsed["category"] = "Unknown"
+            parsed["category"] = "Transfer"
         return parsed
     except json.JSONDecodeError:
         logger.error("Failed to parse Claude response as JSON: %s", raw)

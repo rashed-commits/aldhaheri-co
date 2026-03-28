@@ -181,7 +181,7 @@ ssh root@165.232.162.72 "cd /opt/aldhaheri-co && docker compose ps"
 ### Finance
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| POST | `/webhook/sms` | X-API-Key | Receive and parse SMS |
+| POST | `/webhook/sms` | X-API-Key | Receive and parse SMS (with transfer reconciliation) |
 | GET | `/api/transactions` | Session / X-API-Key | List transactions (paginated) |
 | GET | `/api/transactions/summary` | Session / X-API-Key | Spending summary |
 | PATCH | `/api/transactions/{id}` | Session / X-API-Key | Update fields |
@@ -270,6 +270,14 @@ Set up on Android to automatically forward bank SMS:
 - **Method:** POST
 - **Headers:** `Content-Type: application/json`, `X-API-Key: <WEBHOOK_API_KEY>`
 - **Body:** `{"sms": "%SMSRB"}`
+
+### Transfer Reconciliation
+
+The webhook handles bank transfers with automatic reconciliation:
+
+1. **All transfers** start as Category "Transfer", Merchant blank (or extracted from SMS if present)
+2. **Confirmation SMS** (`Confirmation recd. from ...`) is not stored as a new transaction — it updates the original transfer's merchant with the recipient name
+3. **Internal transfers** (Cr/Dr pair with same amount on same day) are automatically re-categorized as "Internal Transfers"
 
 ## Archived Repos
 
