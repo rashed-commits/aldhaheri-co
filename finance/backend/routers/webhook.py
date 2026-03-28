@@ -197,6 +197,10 @@ async def receive_sms(
                 logger.info("Category from keyword categorizer: %s -> %s", merchant, category)
             # 3. Otherwise keep Claude's category guess from parser.py
 
+    # Refunds always get merchant "Refund"
+    if category == "Refund":
+        merchant = "Refund"
+
     needs_help = not is_transfer and not is_cheque and category in UNCATEGORIZED
 
     txn = Transaction(
