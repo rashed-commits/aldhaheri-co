@@ -148,8 +148,8 @@ CLI-driven via `trade/main.py --phase N` (add `--dry-run` to skip real trades):
 
 **FinBERT sentiment**: `src/sentiment.py` lazy-loads ProsusAI/finbert on first call. Container memory raised to 2G (model needs ~500MB RAM, CPU-only PyTorch). Sentiment accumulates in `data/sentiment.csv`; Phase 4 fetches live sentiment for signal reasoning.
 
-### Trade (VPS crontab, ET timezone)
-Phases 4+5 weekdays 9:25/9:35 AM ET, Phases 1-3 Sunday 6:00 AM.
+### Trade (VPS crontab, EDT timezone)
+Phases 4+5 weekdays 10:00 AM / 2:00 PM UTC (6:00 AM / 10:00 AM EDT), Phases 1-3 Sunday 6:00 AM EDT (10:00 UTC). Phase 4 includes feedback loop evaluation of past predictions. Signal thresholds: buy=0.55, sell=0.35. Model uses Platt-calibrated XGBoost (CalibratedClassifierCV).
 
 ### Market — DISABLED
 Daily scraper cron removed from VPS on 2026-03-28.

@@ -26,7 +26,7 @@ UAE business signal intelligence. Currently offline — serves a static "Coming 
 Property analytics for Abu Dhabi and Dubai. Scrapes PropertyFinder and Bayut, scores listings on 4 opportunity signals (rental yield, price discount, price drops, off-plan), delivers daily PDF reports via email, and serves a React dashboard with area benchmarks and listing tables.
 
 ### Trade — [trade.aldhaheri.co](https://trade.aldhaheri.co)
-ML-powered stock trading bot. Five-phase pipeline: data ingestion (yfinance/Alpaca), feature engineering (technicals + fundamentals + FinBERT sentiment), XGBoost model training, daily signal generation, and Alpaca paper trade execution with position reconciliation. React dashboard for portfolio monitoring.
+ML-powered stock trading bot. Five-phase pipeline: data ingestion (yfinance/Alpaca), feature engineering (technicals + fundamentals + FinBERT sentiment), XGBoost model training with Platt-calibrated probabilities, daily signal generation, and Alpaca paper trade execution with position reconciliation. Includes a prediction feedback loop that tracks out-of-sample accuracy over time. React dashboard for portfolio monitoring.
 
 ## Architecture
 
@@ -152,13 +152,13 @@ ssh root@165.232.162.72 "cd /opt/aldhaheri-co && docker compose ps"
 - **10:00 UTC** — Telegram alert for unidentified transactions
 - **1st of month 09:00 UTC** — Statement reminder
 
-### Trade (VPS crontab, ET timezone)
-- **9:25 AM Mon-Fri** — Phase 4: signal generation
-- **9:35 AM Mon-Fri** — Phase 5: trade execution
-- **6:00 AM Sunday** — Phases 1-3: full retrain
+### Trade (VPS crontab, EDT timezone)
+- **10:00 AM Mon-Fri** — Phase 4: signal generation + feedback loop evaluation
+- **2:00 PM Mon-Fri** — Phase 5: trade execution with position reconciliation
+- **6:00 AM Sunday** — Phases 1-3: full retrain (data ingest + sentiment + training)
 
-### Market (VPS crontab)
-- **Daily** — Scraper pipeline
+### Market (VPS crontab) — DISABLED
+- Daily scraper cron removed on 2026-03-28
 
 ## API Endpoints
 
@@ -254,7 +254,7 @@ All `/api/*` endpoints require a valid session cookie unless noted otherwise. Ev
 |---|---|
 | Frontends | React 18/19, Vite, Tailwind CSS 3/4, Recharts |
 | Backends | FastAPI (4 services), Flask (Market) |
-| AI/ML | Claude Sonnet (Finance), GPT-4o-mini (Market), XGBoost + FinBERT (Trade) |
+| AI/ML | Claude Sonnet (Finance), GPT-4o-mini (Market), XGBoost + Platt calibration + FinBERT (Trade) |
 | Databases | SQLite everywhere, JSON files (Trade pipeline output) |
 | Infrastructure | Docker Compose, Nginx + Certbot, DigitalOcean Ubuntu VPS |
 | Trading | Alpaca SDK (paper trading) |
