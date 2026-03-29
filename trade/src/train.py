@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Tuple
 import joblib
 import numpy as np
 import pandas as pd
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -215,8 +216,8 @@ def cross_validate(
 
 def train_final_model(
     X: pd.DataFrame, y: pd.Series
-) -> Tuple[XGBClassifier, StandardScaler]:
-    """Fit the final XGBoost model on the full dataset."""
+) -> Tuple[CalibratedClassifierCV, StandardScaler]:
+    """Fit the final XGBoost model on the full dataset with Platt scaling."""
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
@@ -224,7 +225,7 @@ def train_final_model(
     pos_count = int((y == 1).sum())
     scale_pos = neg_count / pos_count if pos_count > 0 else 1.0
 
-    model = XGBClassifier(
+    base_model = XGBClassifier(
         n_estimators=CFG.n_estimators,
         max_depth=CFG.max_depth,
         learning_rate=CFG.learning_rate,
@@ -235,8 +236,14 @@ def train_final_model(
         eval_metric="logloss",
         random_state=CFG.random_state,
     )
+
+    # Platt scaling: calibrate probabilities so thresholds are meaningful
+    model = CalibratedClassifierCV(base_model, method="sigmoid", cv=5)
     model.fit(X_scaled, y)
-    log.info("Final model trained on %d samples, %d features.", len(X), X.shape[1])
+    log.info(
+        "Final model trained on %d samples, %d features (Platt-calibrated).",
+        len(X), X.shape[1],
+    )
     return model, scaler
 
 
@@ -245,7 +252,7 @@ def train_final_model(
 # ---------------------------------------------------------------------------
 
 def save_artefacts(
-    model: XGBClassifier,
+    model,
     scaler: StandardScaler,
     feature_names: List[str],
     metrics: Dict[str, Any],
@@ -257,7 +264,7 @@ def save_artefacts(
 
     Files written
     -------------
-    ``model.joblib``            — fitted XGBClassifier
+    ``model.joblib``            — fitted CalibratedClassifierCV (Platt-scaled XGBoost)
     ``scaler.joblib``           — fitted StandardScaler
     ``feature_names.json``      — ordered feature list (pruned)
     ``metrics.json``            — CV metric summary

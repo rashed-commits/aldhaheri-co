@@ -140,7 +140,7 @@ Rejects: empty/short SMS, unresolved Tasker variables, failed/declined keywords,
 CLI-driven via `trade/main.py --phase N` (add `--dry-run` to skip real trades):
 1. **Ingest**: OHLCV + market data from yfinance/Alpaca
 2. **Features**: Technical indicators, fundamental ratios, FinBERT sentiment (`src/sentiment.py`, lazy-loads ProsusAI/finbert, needs ~500MB RAM)
-3. **Train**: XGBoost with feature pruning → `model/saved/`
+3. **Train**: XGBoost with feature pruning + Platt calibration → `model/saved/`
 4. **Signals**: Daily buy/sell → `output/signals_YYYY-MM-DD.json` (fetches live sentiment for reasoning)
 5. **Execute**: Reconcile positions against Alpaca (`reconcile_positions()`) + paper trade → `output/open_positions.json`
 

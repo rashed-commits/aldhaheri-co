@@ -54,7 +54,7 @@ Bot token and chat ID are in `.env` on both local and droplet. Do NOT change the
 - `src/execution/executor.py` — Phase 5: Alpaca paper trading
 - `src/execution/alpaca.py` — Alpaca SDK wrapper
 - `src/notifications.py` — Telegram notifications
-- `src/feedback.py` — Prediction accuracy feedback loop
+- `src/feedback.py` — Prediction accuracy feedback loop (evaluates 5-day forward returns)
 
 ## Dashboard & API Layer
 
@@ -128,28 +128,13 @@ Added 2026-03-15. Scores yfinance news headlines with ProsusAI/finbert. Three fe
 - Automatic (Sunday cron). No action needed unless errors in logs.
 - Check: `docker exec trade-bot cat model/saved/metrics.json`
 
-### March 29, 2026 — Early warning check
-After the Sunday retrain completes, review:
-1. **Accuracy check:** If CV accuracy < 52%, flag immediately — do not wait for April 12.
-2. **Sentiment coverage:** How many rows in `data/sentiment.csv`? Are sentiment features still pruned? Report coverage growth vs. March 15 baseline (41 rows).
-3. **Feedback loop:** Check `output/feedback_history.json` for real out-of-sample accuracy so far.
-4. **LLY performance:** Any trades executed on LLY? P&L?
-```bash
-docker exec trade-bot python -c "
-import json, pandas as pd
-# Metrics
-with open('model/saved/metrics.json') as f: m = json.load(f)
-print('Accuracy:', round(m['accuracy']['mean'], 4))
-print('ROC-AUC:', round(m['roc_auc']['mean'], 4))
-# Sentiment coverage
-df = pd.read_csv('data/sentiment.csv')
-print('Sentiment rows:', len(df))
-print('Tickers with data:', df['ticker'].nunique())
-# Feature names
-with open('model/saved/feature_names.json') as f: fn = json.load(f)
-print('Sentiment in model:', any('sentiment' in f for f in fn))
-"
-```
+### March 29, 2026 — Early warning check (COMPLETED)
+**Result:** Accuracy 54.14% ± 2.62% — PASS (above 52%). However three blocking issues found and fixed:
+1. **Feedback broken:** yfinance 1.2.0 MultiIndex columns caused `_get_actual_return()` to silently fail. Fixed by flattening columns.
+2. **Zero trades:** Buy threshold 0.65 was unreachable for a 54% model. Lowered to 0.55 (sell to 0.35).
+3. **Uncalibrated probabilities:** Added Platt scaling (`CalibratedClassifierCV`) to `train.py` so probabilities map to real likelihoods.
+4. **Sentiment:** 41 rows (March 16-22), still pruned. Working correctly but only updates weekly (Phase 1). Coverage will grow naturally.
+5. **Cron timing:** Retrain runs 6:00 AM EDT (not UTC) — `0 6 * * 0` on an EDT system = 10:00 UTC.
 
 ### April 12, 2026 — Full go/no-go review
 Run comprehensive review against all criteria:
@@ -161,6 +146,6 @@ Run comprehensive review against all criteria:
 6. **Sentiment stats:** Total non-zero sentiment rows, whether features survived pruning, per-ticker coverage
 7. **Week-by-week accuracy trend** across all 4 retrains (flat/declining after week 2 = serious)
 8. **Fold variance:** Did ticker expansion narrow variance?
-9. **0.65 threshold analysis:** Did it filter good or bad trades?
+9. **0.55 threshold analysis:** Did it filter good or bad trades? (Lowered from 0.65 on 2026-03-29)
 
 **No-go triggers (any one = fail):** accuracy < 50%, drawdown > 15%, or < 15 trades in 4 weeks.

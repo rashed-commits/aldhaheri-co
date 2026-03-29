@@ -12,6 +12,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+import pandas as pd
 import yfinance as yf
 
 from src.config import CFG
@@ -41,6 +42,9 @@ def _get_actual_return(ticker: str, signal_date: str, horizon: int = 5) -> Optio
         )
         if df.empty or len(df) < horizon + 1:
             return None
+        # yfinance >= 1.0 may return MultiIndex columns — flatten
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = [c[0] for c in df.columns]
         close_start = float(df["Close"].iloc[0])
         close_end = float(df["Close"].iloc[horizon])
         if close_start <= 0:

@@ -68,8 +68,8 @@ class Config:
     cv_folds: int = 5
 
     # ------------------------------------------------------- signal generation
-    signal_threshold_buy: float = 0.65
-    signal_threshold_sell: float = 0.4
+    signal_threshold_buy: float = 0.55
+    signal_threshold_sell: float = 0.35
     top_n_signals: int = 5
 
     # --------------------------------------------------------- paper trading
