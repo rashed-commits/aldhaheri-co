@@ -77,7 +77,7 @@ Root `docker-compose.yml` uses `include:` to merge per-project compose files. Hu
 | finance-frontend / finance-backend | 3000 / 8001 (internal 8000) | /health (backend) |
 | market-intel | 8000 | /health |
 | realestate-frontend / realestate-backend | 3002 / 8002 | /health (backend) |
-| trade-bot-dashboard / trade-bot-api / trade-bot | 3003 / 8003 / none | /health (api), cron (bot) |
+| trade-bot-dashboard / trade-bot-api / trade-bot / trade-bot-sentiment | 3003 / 8003 / none / none | /health (api), cron (bot, sentiment) |
 
 ### SSO / JWT Auth
 - Hub backend creates JWT with `sub` + `sid`, sets `session` cookie on `.aldhaheri.co`

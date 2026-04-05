@@ -89,10 +89,11 @@ API reads from `output/` and `model/saved/` directories (mounted read-only). It 
 
 ### Docker Services
 
-Three containers in `docker-compose.yml`:
-1. `trade-bot` — ML pipeline (no ports, cron-driven)
-2. `trade-bot-api` — FastAPI on port 8003
-3. `trade-bot-dashboard` — Nginx on port 3003
+Four containers in `docker-compose.yml`:
+1. `trade-bot` — ML pipeline (no ports, cron-driven, no FinBERT)
+2. `trade-bot-sentiment` — FinBERT sentiment worker (cron-driven, writes to sentiment.csv on shared volume)
+3. `trade-bot-api` — FastAPI on port 8003
+4. `trade-bot-dashboard` ��� Nginx on port 3003
 
 ### Environment Variables
 
@@ -118,7 +119,8 @@ Added 2026-03-15. Scores yfinance news headlines with ProsusAI/finbert. Three fe
 - Sentiment accumulates in `data/sentiment.csv` (Phase 1 merges new data with history)
 - Phase 4 fetches live sentiment for signal reasoning display
 - Container memory raised to 2G (FinBERT needs ~500MB), CPU-only PyTorch
-- **Suspended from model training** as of 2026-04-05: 0.45% row coverage in features.csv, 0.0 feature importance. Three sentiment columns excluded via `_SUSPENDED_FEATURES` in `train.py`. Accumulation pipeline continues (Phase 1 + Phase 4 reasoning). Reintroduce when coverage exceeds 30% of training rows.
+- **Suspended from model training** as of 2026-04-05: 0.45% row coverage in features.csv, 0.0 feature importance. Three sentiment columns excluded via `_SUSPENDED_FEATURES` in `train.py`. Reintroduce when coverage exceeds 30% of training rows.
+- **Isolated from main pipeline** as of 2026-04-05: FinBERT runs in its own container (`trade-bot-sentiment`) via `sentiment_cron.py`. Writes to `data/sentiment.csv` on the shared `trade-data` volume. Main pipeline (Phases 1-5) never imports `transformers` or `torch` — reads sentiment.csv as a flat file. This prevents FinBERT (~500MB) from OOM-killing the main pipeline.
 
 ## Scheduled Checkpoints
 

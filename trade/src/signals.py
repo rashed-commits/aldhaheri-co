@@ -397,20 +397,18 @@ def run(dry_run: bool = False) -> None:
         log.warning("Market data fetch failed (non-fatal): %s", exc)
         market_df = None
 
-    # Fetch live FinBERT sentiment for all tickers
-    log.info("Fetching live FinBERT sentiment ...")
+    # Read pre-computed sentiment from CSV (written by sentiment_cron.py).
+    # FinBERT is never loaded in this process to avoid OOM.
     sentiment_df = None
-    try:
-        from src.sentiment import fetch_all_sentiment
-
-        sentiment_df = fetch_all_sentiment()
-        if sentiment_df is not None and not sentiment_df.empty:
-            log.info("Sentiment data: %d rows across %d tickers.",
-                     len(sentiment_df), sentiment_df["ticker"].nunique())
-        else:
-            log.warning("No sentiment data available — using neutral (0).")
-    except Exception as exc:
-        log.warning("Sentiment fetch failed (non-fatal): %s", exc)
+    sentiment_path = CFG.data_dir / "sentiment.csv"
+    if sentiment_path.exists():
+        try:
+            sentiment_df = pd.read_csv(sentiment_path)
+            log.info("Loaded %d sentiment rows from %s.", len(sentiment_df), sentiment_path)
+        except Exception as exc:
+            log.warning("Could not read sentiment.csv (non-fatal): %s", exc)
+    else:
+        log.info("No sentiment.csv — signal reasoning will omit sentiment.")
 
     raw_signals: List[Dict[str, Any]] = []
     for ticker in CFG.tickers:

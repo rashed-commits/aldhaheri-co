@@ -49,6 +49,27 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  trade-bot-sentiment:
+    build: .
+    container_name: trade-bot-sentiment
+    entrypoint: ["python", "sentiment_cron.py"]
+    volumes:
+      - trade-data:/app/data
+      - trade-logs:/app/logs
+    env_file:
+      - ../.env
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "1.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   trade-bot-dashboard:
     build: ./dashboard
     container_name: trade-bot-dashboard
