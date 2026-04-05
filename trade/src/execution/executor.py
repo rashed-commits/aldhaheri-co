@@ -511,6 +511,7 @@ def build_portfolio_summary(
 
 _DRAWDOWN_HALT_FILE = "drawdown_halt.json"
 _DRAWDOWN_THRESHOLD = 0.08   # 8% drawdown from peak triggers halt
+_INCEPTION_DRAWDOWN_THRESHOLD = 0.08  # 8% decline from inception also triggers halt
 _HALT_DAYS = 5               # pause new buys for 5 trading days
 
 
@@ -535,9 +536,14 @@ def check_drawdown_halt(equity: float, run_date: str) -> bool:
     """
     Check if new buys should be halted due to drawdown.
 
-    Updates peak equity if current equity is a new high.
-    Returns True if buying should be paused.
+    Two independent checks:
+    1. **Peak-to-trough**: 8% drawdown from all-time high.
+    2. **Inception-to-current**: 8% decline from inception equity.
+
+    Either trigger halts new buys for 5 trading days (~7 calendar days).
     """
+    from datetime import timedelta
+
     data = _load_peak_equity()
     peak = data.get("peak_equity", 0.0)
     halt_until = data.get("halt_until")
@@ -555,30 +561,51 @@ def check_drawdown_halt(equity: float, run_date: str) -> bool:
     if equity > peak:
         peak = equity
 
-    # Check drawdown
+    halt_end = None
+    trigger_reason = None
+
+    # Check 1: peak-to-trough drawdown
     if peak > 0:
         drawdown = (peak - equity) / peak
         if drawdown >= _DRAWDOWN_THRESHOLD:
-            # Calculate halt end date (5 trading days ≈ 7 calendar days)
-            from datetime import timedelta
             halt_end = (
                 date.fromisoformat(run_date) + timedelta(days=7)
             ).isoformat()
-            data["peak_equity"] = peak
-            data["halt_until"] = halt_end
-            _save_peak_equity(data)
-            log.warning(
-                "DRAWDOWN CIRCUIT BREAKER triggered: %.1f%% drawdown "
-                "(peak=$%.0f, current=$%.0f). Halting new buys until %s.",
-                drawdown * 100, peak, equity, halt_end,
+            trigger_reason = (
+                f"peak drawdown {drawdown:.1%} "
+                f"(peak ${peak:,.0f} → ${equity:,.0f})"
             )
-            from src.notifications import _send_message
-            _send_message(
-                f"\U0001f6a8 *Drawdown Circuit Breaker*\n"
-                f"Drawdown: {drawdown:.1%} (peak ${peak:,.0f} → ${equity:,.0f})\n"
-                f"New buys halted until {halt_end}"
-            )
-            return True
+
+    # Check 2: inception-to-current drawdown
+    if halt_end is None:
+        inception_equity = load_inception_equity()
+        if inception_equity and inception_equity > 0:
+            inception_dd = (inception_equity - equity) / inception_equity
+            if inception_dd >= _INCEPTION_DRAWDOWN_THRESHOLD:
+                halt_end = (
+                    date.fromisoformat(run_date) + timedelta(days=7)
+                ).isoformat()
+                trigger_reason = (
+                    f"inception drawdown {inception_dd:.1%} "
+                    f"(inception ${inception_equity:,.0f} → ${equity:,.0f})"
+                )
+
+    if halt_end is not None:
+        data["peak_equity"] = peak
+        data["halt_until"] = halt_end
+        _save_peak_equity(data)
+        log.warning(
+            "DRAWDOWN CIRCUIT BREAKER triggered: %s. "
+            "Halting new buys until %s.",
+            trigger_reason, halt_end,
+        )
+        from src.notifications import _send_message
+        _send_message(
+            f"\U0001f6a8 *Drawdown Circuit Breaker*\n"
+            f"Trigger: {trigger_reason}\n"
+            f"New buys halted until {halt_end}"
+        )
+        return True
 
     # No halt — save updated peak
     data["peak_equity"] = peak

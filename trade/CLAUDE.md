@@ -118,9 +118,7 @@ Added 2026-03-15. Scores yfinance news headlines with ProsusAI/finbert. Three fe
 - Sentiment accumulates in `data/sentiment.csv` (Phase 1 merges new data with history)
 - Phase 4 fetches live sentiment for signal reasoning display
 - Container memory raised to 2G (FinBERT needs ~500MB), CPU-only PyTorch
-- Cold-start: all 3 features were pruned at first retrain (0.12% non-zero rows). Will gain value as data accumulates.
-
-**LLY watch:** Only ticker with meaningfully negative sentiment (-0.353) at launch. Monitor its paper trading performance — if it consistently underperforms, sentiment may be a contributing factor.
+- **Suspended from model training** as of 2026-04-05: 0.45% row coverage in features.csv, 0.0 feature importance. Three sentiment columns excluded via `_SUSPENDED_FEATURES` in `train.py`. Accumulation pipeline continues (Phase 1 + Phase 4 reasoning). Reintroduce when coverage exceeds 30% of training rows.
 
 ## Scheduled Checkpoints
 
@@ -136,16 +134,33 @@ Added 2026-03-15. Scores yfinance news headlines with ProsusAI/finbert. Three fe
 4. **Sentiment:** 41 rows (March 16-22), still pruned. Working correctly but only updates weekly (Phase 1). Coverage will grow naturally.
 5. **Cron timing:** Retrain runs 6:00 AM EDT (not UTC) — `0 6 * * 0` on an EDT system = 10:00 UTC.
 
-### April 12, 2026 — Full go/no-go review
-Run comprehensive review against all criteria:
-1. **Out-of-sample accuracy** > 55% (from feedback_history.json)
+### April 5, 2026 — System health check (FAILED — model not viable)
+**Result:** Zero trades in 33 days. Model not viable. April 12 review suspended.
+
+**Root causes identified and fixed:**
+1. **Platt calibration used StratifiedKFold** — `CalibratedClassifierCV(cv=5)` defaults to StratifiedKFold, which leaks future data into calibration. One of 5 sigmoid calibrators had inverted parameters (negative `a`), crushing prediction variance to std=0.03. All predictions compressed to 0.33–0.54 on training data. On live data with feature distribution shift, predictions skewed to 0.06–0.16 (all SELL). **Fixed:** replaced with `cv=TimeSeriesSplit(n_splits=5)`.
+2. **HOLD inflation in feedback** — HOLD signals were scored as always correct, inflating accuracy. Corrected directional accuracy (BUY+SELL only): 80%→80%→60%→40%→40% (declining). **Fixed:** feedback now tracks `directional_accuracy` separately.
+3. **Circuit breaker blind to inception drawdown** — only tracked peak-to-trough. Portfolio bled $26K from inception without triggering. **Fixed:** added inception-to-current check at same 8% threshold.
+4. **FinBERT features dead weight** — 0.45% row coverage, 0.0 importance, 3 wasted features. **Fixed:** suspended from training via `_SUSPENDED_FEATURES` list. Accumulation pipeline continues; reintroduce at >30% coverage.
+5. **No per-fold importance tracking** — could not diagnose temporal degradation. **Fixed:** `cross_validate()` now saves `fold_importances.json`.
+
+**Feature audit results (42 features, sentiment excluded):**
+- Overfitting candidates (high early, low late): `f_profit_margin`, `f_gross_margin`, `macd_hist`
+- Improving features (gaining importance over time): `spy_return_20d/50d`, `f_revenue_growth_yoy/qoq`, `vix_above_avg`, `f_debt_to_assets`
+- Fold 4 anomaly: accuracy dropped to 47.3% (below random). Investigate data quality in that time window.
+
+**Next steps:** Deploy fixes → Sunday retrain (Apr 6) will produce first corrected model. Evaluate new model's signal distribution before re-enabling April 12 review.
+
+### April 12, 2026 — Full go/no-go review (POSTPONED)
+Postponed pending corrected model from Apr 6 retrain. Original criteria:
+1. **Out-of-sample directional accuracy** > 55% (from feedback_history.json, HOLD excluded)
 2. **Number of trades** > 20
 3. **Max drawdown** < 12%
 4. **Average return per trade** > 0.5%
 5. **Win rate** > 50%
 6. **Sentiment stats:** Total non-zero sentiment rows, whether features survived pruning, per-ticker coverage
 7. **Week-by-week accuracy trend** across all 4 retrains (flat/declining after week 2 = serious)
-8. **Fold variance:** Did ticker expansion narrow variance?
+8. **Fold variance:** Did ticker expansion narrow variance? Compare `fold_importances.json` across retrains.
 9. **0.55 threshold analysis:** Did it filter good or bad trades? (Lowered from 0.65 on 2026-03-29)
 
-**No-go triggers (any one = fail):** accuracy < 50%, drawdown > 15%, or < 15 trades in 4 weeks.
+**No-go triggers (any one = fail):** directional accuracy < 50%, drawdown > 15%, or < 15 trades in 4 weeks.

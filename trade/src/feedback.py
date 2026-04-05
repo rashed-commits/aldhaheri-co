@@ -91,6 +91,8 @@ def evaluate_predictions(
 
     total = 0
     correct = 0
+    directional_total = 0
+    directional_correct = 0
     details = []
 
     for sig in signals:
@@ -104,13 +106,20 @@ def evaluate_predictions(
             continue
 
         total += 1
-        # BUY correct if return > 0, SELL correct if return < 0, HOLD always "correct"
+        # BUY correct if return > 0, SELL correct if return < 0
+        # HOLD is excluded from directional accuracy (not a directional bet)
         if predicted_signal == "BUY":
             was_correct = actual_return > 0
+            directional_total += 1
+            if was_correct:
+                directional_correct += 1
         elif predicted_signal == "SELL":
             was_correct = actual_return < 0
+            directional_total += 1
+            if was_correct:
+                directional_correct += 1
         else:
-            was_correct = True  # HOLD is neutral
+            was_correct = None  # HOLD — not scored
 
         if was_correct:
             correct += 1
@@ -127,25 +136,42 @@ def evaluate_predictions(
             "  %s  signal=%s  prob=%.4f  actual=%.2f%%  %s",
             ticker, predicted_signal, prob_up,
             actual_return * 100,
-            "CORRECT" if was_correct else "WRONG",
+            "CORRECT" if was_correct else ("HOLD" if was_correct is None else "WRONG"),
         )
 
     if total == 0:
         return None
 
+    # Primary metric: directional accuracy (BUY + SELL only, excludes HOLD)
+    directional_accuracy = (
+        directional_correct / directional_total if directional_total > 0 else None
+    )
+    # Legacy metric kept for continuity
     accuracy = correct / total
 
     # Save feedback history
-    _save_feedback_record(evaluable_date, total, correct, accuracy, details)
+    _save_feedback_record(
+        evaluable_date, total, correct, accuracy,
+        directional_total, directional_correct, directional_accuracy,
+        details,
+    )
 
-    log.info("Feedback: %d/%d correct (%.1f%%) for signals from %s.",
-             correct, total, accuracy * 100, evaluable_date)
+    log.info(
+        "Feedback: directional %d/%d (%.1f%%), overall %d/%d (%.1f%%) for %s.",
+        directional_correct, directional_total,
+        (directional_accuracy or 0) * 100,
+        correct, total, accuracy * 100,
+        evaluable_date,
+    )
 
     return {
         "signal_date": evaluable_date,
         "total": total,
         "correct": correct,
         "accuracy": accuracy,
+        "directional_total": directional_total,
+        "directional_correct": directional_correct,
+        "directional_accuracy": directional_accuracy,
         "horizon": horizon,
         "details": details,
     }
@@ -156,6 +182,9 @@ def _save_feedback_record(
     total: int,
     correct: int,
     accuracy: float,
+    directional_total: int,
+    directional_correct: int,
+    directional_accuracy: float | None,
     details: list,
 ) -> None:
     """Append feedback to a rolling history file."""
@@ -173,14 +202,18 @@ def _save_feedback_record(
     if any(r["signal_date"] == signal_date for r in history):
         return
 
-    history.append({
+    record = {
         "signal_date": signal_date,
         "evaluated_on": date.today().isoformat(),
         "total": total,
         "correct": correct,
         "accuracy": round(accuracy, 4),
+        "directional_total": directional_total,
+        "directional_correct": directional_correct,
+        "directional_accuracy": round(directional_accuracy, 4) if directional_accuracy is not None else None,
         "details": details,
-    })
+    }
+    history.append(record)
 
     # Keep last 90 days
     history = history[-90:]

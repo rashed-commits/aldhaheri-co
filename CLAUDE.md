@@ -146,10 +146,10 @@ CLI-driven via `trade/main.py --phase N` (add `--dry-run` to skip real trades):
 
 **Position reconciliation** (Phase 5): Before trading, `reconcile_positions()` syncs `open_positions.json` against Alpaca's actual positions to prevent drift from manual trades. Skipped in `--dry-run`. Fails safe — keeps local positions unchanged if Alpaca API fails. Uses reverse `alpaca_symbol_map` from `CFG` to translate Alpaca symbols back to yfinance tickers.
 
-**FinBERT sentiment**: `src/sentiment.py` lazy-loads ProsusAI/finbert on first call. Container memory raised to 2G (model needs ~500MB RAM, CPU-only PyTorch). Sentiment accumulates in `data/sentiment.csv`; Phase 4 fetches live sentiment for signal reasoning.
+**FinBERT sentiment**: `src/sentiment.py` lazy-loads ProsusAI/finbert on first call. Container memory raised to 2G (model needs ~500MB RAM, CPU-only PyTorch). Sentiment accumulates in `data/sentiment.csv`; Phase 4 fetches live sentiment for signal reasoning. **Suspended from model training** (0.45% row coverage, 0.0 feature importance). Accumulation pipeline runs passively; reintroduce to model when coverage exceeds 30%. Controlled by `_SUSPENDED_FEATURES` list in `train.py`.
 
 ### Trade (VPS crontab, EDT timezone)
-Phases 4+5 weekdays 10:00 AM / 2:00 PM UTC (6:00 AM / 10:00 AM EDT), Phases 1-3 Sunday 6:00 AM EDT (10:00 UTC). Phase 4 includes feedback loop evaluation of past predictions. Signal thresholds: buy=0.55, sell=0.35. Model uses Platt-calibrated XGBoost (CalibratedClassifierCV).
+Phases 4+5 weekdays 10:00 AM / 2:00 PM UTC (6:00 AM / 10:00 AM EDT), Phases 1-3 Sunday 6:00 AM EDT (10:00 UTC). Phase 4 includes feedback loop evaluation of past predictions (directional accuracy only — HOLD signals excluded from scoring). Signal thresholds: buy=0.55, sell=0.35. Model uses Platt-calibrated XGBoost (CalibratedClassifierCV with TimeSeriesSplit, not StratifiedKFold). Drawdown circuit breaker halts new buys at 8% drawdown from peak OR 8% decline from inception equity — whichever triggers first.
 
 ### Market — DISABLED
 Daily scraper cron removed from VPS on 2026-03-28.

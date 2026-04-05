@@ -46,6 +46,15 @@ log = get_logger("train")
 # Columns that are not features (excluded before fitting)
 _NON_FEATURE_COLS = ["date", "ticker", "target", "open", "high", "low", "close", "volume"]
 
+# Sentiment features suspended — 0.45% row coverage yields 0.0 importance.
+# Keep accumulation pipeline running (Phase 1 + Phase 4 reasoning display);
+# reintroduce into the model only when coverage exceeds 30% of training rows.
+_SUSPENDED_FEATURES = [
+    "sentiment_positive_score",
+    "sentiment_negative_score",
+    "sentiment_net_score",
+]
+
 
 # ---------------------------------------------------------------------------
 # Data preparation
@@ -160,6 +169,9 @@ def cross_validate(
 ) -> Dict[str, Any]:
     """
     Run time-series cross-validation and return aggregated metrics.
+
+    Also tracks per-fold feature importance to detect temporal degradation
+    (features that rank high on early folds but low on recent folds).
     """
     tscv = TimeSeriesSplit(n_splits=n_splits)
     scaler = StandardScaler()
@@ -167,6 +179,7 @@ def cross_validate(
     fold_metrics: Dict[str, List[float]] = {
         "accuracy": [], "roc_auc": [], "f1": []
     }
+    fold_importances: List[Dict[str, float]] = []
 
     for fold, (train_idx, val_idx) in enumerate(tscv.split(X), start=1):
         X_tr, X_val = X.iloc[train_idx], X.iloc[val_idx]
@@ -199,6 +212,10 @@ def cross_validate(
         fold_metrics["roc_auc"].append(roc_auc_score(y_val, y_prob))
         fold_metrics["f1"].append(f1_score(y_val, y_pred, zero_division=0))
 
+        # Track per-fold feature importance for audit
+        fold_imp = dict(zip(X.columns, model.feature_importances_))
+        fold_importances.append(fold_imp)
+
         log.info(
             "Fold %d/%d — acc=%.4f  roc_auc=%.4f  f1=%.4f",
             fold, n_splits,
@@ -207,6 +224,7 @@ def cross_validate(
             fold_metrics["f1"][-1],
         )
 
+    fold_metrics["fold_importances"] = fold_importances
     return fold_metrics
 
 
@@ -217,7 +235,11 @@ def cross_validate(
 def train_final_model(
     X: pd.DataFrame, y: pd.Series
 ) -> Tuple[CalibratedClassifierCV, StandardScaler]:
-    """Fit the final XGBoost model on the full dataset with Platt scaling."""
+    """Fit the final XGBoost model on the full dataset with Platt scaling.
+
+    Uses TimeSeriesSplit for calibration CV to preserve temporal ordering
+    and prevent future data leakage into the sigmoid calibration.
+    """
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
@@ -237,11 +259,14 @@ def train_final_model(
         random_state=CFG.random_state,
     )
 
-    # Platt scaling: calibrate probabilities so thresholds are meaningful
-    model = CalibratedClassifierCV(base_model, method="sigmoid", cv=5)
+    # Platt scaling with TimeSeriesSplit — StratifiedKFold (the default when
+    # cv is an int) leaks future data into calibration, producing erratic
+    # sigmoid parameters that crush prediction variance and bias toward SELL.
+    ts_cv = TimeSeriesSplit(n_splits=CFG.cv_folds)
+    model = CalibratedClassifierCV(base_model, method="sigmoid", cv=ts_cv)
     model.fit(X_scaled, y)
     log.info(
-        "Final model trained on %d samples, %d features (Platt-calibrated).",
+        "Final model trained on %d samples, %d features (Platt-calibrated, TimeSeriesSplit).",
         len(X), X.shape[1],
     )
     return model, scaler
@@ -282,6 +307,9 @@ def save_artefacts(
         json.dump(feature_names, fh, indent=2)
     log.info("Saved feature names -> %s", out_dir / "feature_names.json")
 
+    # Separate fold importances from scalar metrics
+    fold_importances = metrics.pop("fold_importances", None)
+
     summary = {
         k: {
             "mean": float(np.mean(v)),
@@ -293,6 +321,16 @@ def save_artefacts(
     with open(out_dir / "metrics.json", "w") as fh:
         json.dump(summary, fh, indent=2)
     log.info("Saved CV metrics -> %s", out_dir / "metrics.json")
+
+    # Save per-fold feature importance for temporal degradation audit
+    if fold_importances:
+        fold_imp_out = {
+            f"fold_{i+1}": {k: float(v) for k, v in imp.items()}
+            for i, imp in enumerate(fold_importances)
+        }
+        with open(out_dir / "fold_importances.json", "w") as fh:
+            json.dump(fold_imp_out, fh, indent=2)
+        log.info("Saved per-fold importances -> %s", out_dir / "fold_importances.json")
 
     sorted_imp = {k: float(v) for k, v in sorted(importances.items(), key=lambda x: x[1], reverse=True)}
     with open(out_dir / "feature_importance.json", "w") as fh:
@@ -314,9 +352,18 @@ def run() -> None:
     df = apply_walk_forward_window(df, CFG.walk_forward_window)
     df = drop_na_rows(df, context="train")
 
-    feature_names = [c for c in df.columns if c not in _NON_FEATURE_COLS]
+    feature_names = [
+        c for c in df.columns
+        if c not in _NON_FEATURE_COLS and c not in _SUSPENDED_FEATURES
+    ]
     X = df[feature_names].astype(float)
     y = df["target"].astype(int)
+
+    if _SUSPENDED_FEATURES:
+        log.info(
+            "Suspended features (excluded from training): %s",
+            _SUSPENDED_FEATURES,
+        )
 
     log.info(
         "Dataset: %d samples, %d features, %.1f%% positive class.",

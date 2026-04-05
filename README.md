@@ -26,7 +26,7 @@ UAE business signal intelligence. Currently offline — serves a static "Coming 
 Property analytics for Abu Dhabi and Dubai. Scrapes PropertyFinder and Bayut, scores listings on 4 opportunity signals (rental yield, price discount, price drops, off-plan), delivers daily PDF reports via email, and serves a React dashboard with area benchmarks and listing tables.
 
 ### Trade — [trade.aldhaheri.co](https://trade.aldhaheri.co)
-ML-powered stock trading bot. Five-phase pipeline: data ingestion (yfinance/Alpaca), feature engineering (technicals + fundamentals + FinBERT sentiment), XGBoost model training with Platt-calibrated probabilities, daily signal generation, and Alpaca paper trade execution with position reconciliation. Includes a prediction feedback loop that tracks out-of-sample accuracy over time. React dashboard for portfolio monitoring.
+ML-powered stock trading bot. Five-phase pipeline: data ingestion (yfinance/Alpaca), feature engineering (technicals + fundamentals), XGBoost model training with Platt-calibrated probabilities (TimeSeriesSplit), daily signal generation, and Alpaca paper trade execution with position reconciliation. Drawdown circuit breaker halts trading at 8% decline from peak or inception. Prediction feedback loop tracks directional accuracy (BUY/SELL only, HOLD excluded). FinBERT sentiment runs passively (accumulating data) but is suspended from model training until coverage exceeds 30%. React dashboard for portfolio monitoring.
 
 ## Architecture
 
