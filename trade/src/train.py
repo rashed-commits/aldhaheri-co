@@ -385,6 +385,8 @@ def run() -> None:
     log.info("Pass 2: %d-fold time-series cross-validation ...", CFG.cv_folds)
     cv_metrics = cross_validate(X, y)
     for metric, values in cv_metrics.items():
+        if metric == "fold_importances":
+            continue
         log.info(
             "CV %s — mean=%.4f  std=%.4f",
             metric, np.mean(values), np.std(values),
