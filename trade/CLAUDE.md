@@ -151,16 +151,18 @@ Added 2026-03-15. Scores yfinance news headlines with ProsusAI/finbert. Three fe
 
 **Next steps:** Deploy fixes → Sunday retrain (Apr 6) will produce first corrected model. Evaluate new model's signal distribution before re-enabling April 12 review.
 
-### April 12, 2026 — Full go/no-go review (POSTPONED)
-Postponed pending corrected model from Apr 6 retrain. Original criteria:
+### May 3, 2026 — Full go/no-go review (RESCHEDULED from Apr 12)
+Paper trading period effectively restarted on 2026-04-05 (prior 33 days used broken calibration). Clock reset — 4-week evaluation window: Apr 7 – May 2.
+
+Review criteria:
 1. **Out-of-sample directional accuracy** > 55% (from feedback_history.json, HOLD excluded)
-2. **Number of trades** > 20
+2. **Number of directional trades** > 20 (BUY + SELL actions, in the Apr 7 – May 2 window)
 3. **Max drawdown** < 12%
 4. **Average return per trade** > 0.5%
 5. **Win rate** > 50%
 6. **Sentiment stats:** Total non-zero sentiment rows, whether features survived pruning, per-ticker coverage
-7. **Week-by-week accuracy trend** across all 4 retrains (flat/declining after week 2 = serious)
-8. **Fold variance:** Did ticker expansion narrow variance? Compare `fold_importances.json` across retrains.
-9. **0.55 threshold analysis:** Did it filter good or bad trades? (Lowered from 0.65 on 2026-03-29)
+7. **Week-by-week accuracy trend** — flat/declining after week 2 = serious
+8. **Fold variance:** Compare `fold_importances.json` across retrains
+9. **0.55 threshold analysis:** Did it filter good or bad trades?
 
-**No-go triggers (any one = fail):** directional accuracy < 50%, drawdown > 15%, or < 15 trades in 4 weeks.
+**No-go triggers (any one = fail):** directional accuracy < 50%, drawdown > 15%, or < 20 directional trades in 4 weeks.
