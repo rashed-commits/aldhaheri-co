@@ -151,7 +151,10 @@ Added 2026-03-15. Scores yfinance news headlines with ProsusAI/finbert. Three fe
 - Improving features (gaining importance over time): `spy_return_20d/50d`, `f_revenue_growth_yoy/qoq`, `vix_above_avg`, `f_debt_to_assets`
 - Fold 4 anomaly: accuracy dropped to 47.3% (below random). Investigate data quality in that time window.
 
-**Next steps:** Deploy fixes → Sunday retrain (Apr 6) will produce first corrected model. Evaluate new model's signal distribution before re-enabling April 12 review.
+**Next steps:** Fixes deployed and retrained same day. Model producing valid signals (25% SELL, 75% HOLD, 0% BUY). FinBERT isolated into separate container.
+
+### April 11, 2026 — Threshold evaluation checkpoint
+If no BUY signals have appeared by EOD April 11, lower `signal_threshold_buy` from 0.55 to 0.50. This is a live change, not evaluation-only. Report the first trading day's signal distribution at the new threshold. Temporary — reviewed at the April 13 retrain.
 
 ### May 3, 2026 — Full go/no-go review (RESCHEDULED from Apr 12)
 Paper trading period effectively restarted on 2026-04-05 (prior 33 days used broken calibration). Clock reset — 4-week evaluation window: Apr 7 – May 2.
