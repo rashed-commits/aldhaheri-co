@@ -153,21 +153,30 @@ Added 2026-03-15. Scores yfinance news headlines with ProsusAI/finbert. Three fe
 
 **Next steps:** Fixes deployed and retrained same day. Model producing valid signals (25% SELL, 75% HOLD, 0% BUY). FinBERT isolated into separate container.
 
-### April 11, 2026 — Threshold evaluation checkpoint
-If no BUY signals have appeared by EOD April 11, lower `signal_threshold_buy` from 0.55 to 0.50. This is a live change, not evaluation-only. Report the first trading day's signal distribution at the new threshold. Temporary — reviewed at the April 13 retrain.
+### April 12, 2026 — Architecture overhaul (COMPLETED)
+**No-go confirmed** on prior model (zero trades, 53.7% accuracy ceiling). Three changes deployed:
 
-### May 3, 2026 — Full go/no-go review (RESCHEDULED from Apr 12)
-Paper trading period effectively restarted on 2026-04-05 (prior 33 days used broken calibration). Clock reset — 4-week evaluation window: Apr 7 – May 2.
+1. **New features (12 added, 3 dropped):** Analyst target gap, revision momentum, sector-relative strength (vs SPDR ETFs), short interest, sector one-hot encoding. Dropped: `f_current_ratio`, `f_operating_margin`, `macd_hist`.
+2. **10-day prediction target** (was 5-day). CV accuracy: 51.6% mean but ROC-AUC 54.6%. Calibrated probability range widened from [0.35, 0.51] to [0.35, 0.61].
+3. **Regime-adjusted thresholds** based on VIX level:
+   - Low VIX (<15): buy≥0.58, sell≤0.35 (model weakest)
+   - Normal (15-20): buy≥0.55, sell≤0.35
+   - Elevated (20-25): buy≥0.52, sell≤0.38
+   - High VIX (>25): buy≥0.50, sell≤0.40 (model strongest, 60.5% backtest acc)
+
+Backtest: 275 BUY (60.7% acc) + 23 SELL (78.3% acc) over 37 months. Signals cluster in elevated/high VIX months.
+
+### May 10, 2026 — Full go/no-go review
+Paper trading evaluation window: Apr 14 – May 9 (4 weeks). Feedback evaluates after 10 trading days (not 5).
 
 Review criteria:
 1. **Out-of-sample directional accuracy** > 55% (from feedback_history.json, HOLD excluded)
-2. **Number of directional trades** > 20 (BUY + SELL actions, in the Apr 7 – May 2 window)
+2. **Number of directional trades** > 20 (BUY + SELL actions, in the Apr 14 – May 9 window)
 3. **Max drawdown** < 12%
 4. **Average return per trade** > 0.5%
 5. **Win rate** > 50%
-6. **Sentiment stats:** Total non-zero sentiment rows, whether features survived pruning, per-ticker coverage
-7. **Week-by-week accuracy trend** — flat/declining after week 2 = serious
-8. **Fold variance:** Compare `fold_importances.json` across retrains
-9. **0.55 threshold analysis:** Did it filter good or bad trades?
+6. **Week-by-week accuracy trend** — flat/declining after week 2 = serious
+7. **Fold variance:** Compare `fold_importances.json` across retrains
+8. **Regime distribution:** How many signals per regime? Did high-VIX signals outperform?
 
 **No-go triggers (any one = fail):** directional accuracy < 50%, drawdown > 15%, or < 20 directional trades in 4 weeks.
