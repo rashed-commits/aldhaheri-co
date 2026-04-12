@@ -271,6 +271,18 @@ def _build_reasoning(row: pd.Series, feature_names: List[str]) -> List[Dict[str,
     return factors
 
 
+def _classify_regime(vix_value: float | None) -> str:
+    """Map a VIX reading to a regime label using CFG.regime_vix_bins."""
+    if vix_value is None:
+        return "normal"
+    bins = CFG.regime_vix_bins  # [0, 15, 20, 25]
+    labels = list(CFG.regime_thresholds.keys())  # low, normal, elevated, high
+    for i, boundary in enumerate(bins[1:]):
+        if vix_value < boundary:
+            return labels[i]
+    return labels[-1]  # high (above last bin)
+
+
 def compute_signal(
     ticker: str,
     model: Any,
@@ -342,9 +354,17 @@ def compute_signal(
     x_scaled = scaler.transform(x)
     prob_up = float(model.predict_proba(x_scaled)[0, 1])
 
-    if prob_up >= CFG.signal_threshold_buy:
+    # Classify VIX regime and apply regime-specific thresholds
+    vix_value = float(latest["vix"]) if "vix" in latest.index and pd.notna(latest["vix"]) else None
+    regime = _classify_regime(vix_value)
+    thresholds = CFG.regime_thresholds.get(regime, {
+        "buy": CFG.signal_threshold_buy,
+        "sell": CFG.signal_threshold_sell,
+    })
+
+    if prob_up >= thresholds["buy"]:
         signal = "BUY"
-    elif prob_up <= CFG.signal_threshold_sell:
+    elif prob_up <= thresholds["sell"]:
         signal = "SELL"
     else:
         signal = "HOLD"
@@ -358,6 +378,8 @@ def compute_signal(
         "close": round(close_price, 4),
         "prob_up": round(prob_up, 4),
         "signal": signal,
+        "regime": regime,
+        "regime_thresholds": thresholds,
         "reasoning": reasoning,
     }
 

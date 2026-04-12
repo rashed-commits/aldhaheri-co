@@ -89,9 +89,19 @@ class Config:
     cv_folds: int = 5
 
     # ------------------------------------------------------- signal generation
-    signal_threshold_buy: float = 0.55
-    signal_threshold_sell: float = 0.35
+    signal_threshold_buy: float = 0.55   # fallback if regime lookup fails
+    signal_threshold_sell: float = 0.35  # fallback if regime lookup fails
     top_n_signals: int = 5
+
+    # Regime-adjusted thresholds — model is strongest in high VIX (60.5% acc)
+    # and weakest in low VIX (51.3% acc). Thresholds reflect this.
+    regime_thresholds: Dict[str, Dict[str, float]] = field(default_factory=lambda: {
+        "low":      {"buy": 0.58, "sell": 0.35},   # VIX < 15 — strictest buy
+        "normal":   {"buy": 0.55, "sell": 0.35},   # VIX 15-20
+        "elevated": {"buy": 0.52, "sell": 0.38},   # VIX 20-25
+        "high":     {"buy": 0.50, "sell": 0.40},   # VIX > 25 — loosest buy, tightest sell
+    })
+    regime_vix_bins: List[float] = field(default_factory=lambda: [0, 15, 20, 25])
 
     # --------------------------------------------------------- paper trading
     max_position_size: float = 0.1   # 10 % of portfolio per position
@@ -100,7 +110,7 @@ class Config:
     max_open_positions: int = 10
 
     # ------------------------------------------------- ML pipeline tuning
-    target_horizon: int = 5              # forward return look-ahead (trading days)
+    target_horizon: int = 10             # forward return look-ahead (trading days)
     target_return_threshold: float = 0.01  # min forward return for target=1 (1%)
     walk_forward_window: int = 756       # ~3 years of trading days
     min_feature_importance: float = 0.01 # prune features below this importance
