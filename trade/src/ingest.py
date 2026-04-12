@@ -40,9 +40,15 @@ def fetch_ticker(ticker: str) -> pd.DataFrame:
 
 
 def fetch_market_data() -> pd.DataFrame:
-    """Download VIX and SPY as market regime indicators."""
+    """Download VIX, SPY, and sector ETFs as market regime indicators."""
     frames = []
-    for symbol, name in [("^VIX", "vix"), ("SPY", "spy")]:
+    # Core market indicators
+    symbols = [("^VIX", "vix"), ("SPY", "spy")]
+    # Sector ETFs for sector-relative strength
+    for etf in CFG.sector_etfs:
+        symbols.append((etf, etf.lower()))
+
+    for symbol, name in symbols:
         end = CFG.end_date or pd.Timestamp.today().strftime("%Y-%m-%d")
         log.info("Fetching market data: %s (%s -> %s)", symbol, CFG.start_date, end)
         df = yf.download(
@@ -63,11 +69,12 @@ def fetch_market_data() -> pd.DataFrame:
         df = df[["date", "close"]].rename(columns={"close": f"{name}_close"})
         frames.append(df)
 
-    if len(frames) == 2:
-        return frames[0].merge(frames[1], on="date", how="outer")
-    elif frames:
-        return frames[0]
-    return pd.DataFrame()
+    if not frames:
+        return pd.DataFrame()
+    result = frames[0]
+    for f in frames[1:]:
+        result = result.merge(f, on="date", how="outer")
+    return result
 
 
 def run() -> None:

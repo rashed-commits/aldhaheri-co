@@ -48,12 +48,11 @@ def _add_macd(
     slow: int = CFG.macd_slow,
     signal: int = CFG.macd_signal,
 ) -> pd.DataFrame:
-    """Append MACD columns (``macd``, ``macd_signal``, ``macd_hist``)."""
+    """Append MACD columns (``macd``, ``macd_signal``)."""
     ema_fast = df["close"].ewm(span=fast, adjust=False).mean()
     ema_slow = df["close"].ewm(span=slow, adjust=False).mean()
     df["macd"] = ema_fast - ema_slow
     df["macd_signal"] = df["macd"].ewm(span=signal, adjust=False).mean()
-    df["macd_hist"] = df["macd"] - df["macd_signal"]
     return df
 
 
@@ -163,7 +162,6 @@ def _fetch_quarterly_fundamentals(ticker: str) -> pd.DataFrame:
         gross_profit = _safe_val(inc, "Gross Profit", d)
 
         row["f_profit_margin"] = net_income / revenue if (revenue and net_income is not None) else np.nan
-        row["f_operating_margin"] = op_income / revenue if (revenue and op_income is not None) else np.nan
         row["f_gross_margin"] = gross_profit / revenue if (revenue and gross_profit is not None) else np.nan
 
         # Revenue growth (QoQ)
@@ -192,7 +190,6 @@ def _fetch_quarterly_fundamentals(ticker: str) -> pd.DataFrame:
 
             row["f_debt_to_equity"] = total_debt / equity_val if (equity_val and total_debt is not None) else np.nan
             row["f_roe"] = net_income / equity_val if (equity_val and net_income is not None) else np.nan
-            row["f_current_ratio"] = current_assets / current_liab if (current_liab and current_assets is not None) else np.nan
             row["f_cash_to_debt"] = cash / total_debt if (total_debt and cash is not None) else np.nan
             row["f_debt_to_assets"] = total_debt / total_assets if (total_assets and total_debt is not None) else np.nan
 
@@ -237,9 +234,9 @@ def _add_fundamental_features(
     if fund_df.empty:
         # Add NaN columns so downstream pipeline doesn't break
         for col in [
-            "f_profit_margin", "f_operating_margin", "f_gross_margin",
+            "f_profit_margin", "f_gross_margin",
             "f_revenue_growth_qoq", "f_revenue_growth_yoy",
-            "f_debt_to_equity", "f_roe", "f_current_ratio",
+            "f_debt_to_equity", "f_roe",
             "f_cash_to_debt", "f_debt_to_assets", "f_fcf_margin",
         ]:
             df[col] = np.nan
@@ -369,6 +366,182 @@ def _add_sentiment_features(
 
 
 # ---------------------------------------------------------------------------
+# Analyst features (from yfinance upgrades_downgrades)
+# ---------------------------------------------------------------------------
+
+def _fetch_analyst_data(ticker: str) -> pd.DataFrame:
+    """Fetch timestamped analyst upgrades/downgrades with price targets.
+
+    Returns a DataFrame with columns: date, analyst_target, action_score.
+    action_score: +1 for upgrades (up/init with positive tone), -1 for
+    downgrades (down), 0 for maintains/reiterate.
+    """
+    try:
+        t = yf.Ticker(ticker)
+        ud = t.upgrades_downgrades
+    except Exception as exc:
+        log.warning("Could not fetch analyst data for %s: %s", ticker, exc)
+        return pd.DataFrame()
+
+    if ud is None or ud.empty:
+        return pd.DataFrame()
+
+    ud = ud.copy()
+    ud.index = pd.to_datetime(ud.index).tz_localize(None)
+    ud = ud.reset_index().rename(columns={"GradeDate": "date"})
+
+    # Extract price targets (0 means not provided)
+    ud["analyst_target"] = pd.to_numeric(ud["currentPriceTarget"], errors="coerce").fillna(0)
+
+    # Score each action: up=+1, down=-1, maintain/init=0
+    action_map = {"up": 1, "down": -1, "main": 0, "init": 0, "reit": 0}
+    ud["action_score"] = ud["Action"].str.lower().map(action_map).fillna(0).astype(int)
+
+    return ud[["date", "analyst_target", "action_score"]].sort_values("date")
+
+
+def _add_analyst_features(
+    df: pd.DataFrame, analyst_df: pd.DataFrame
+) -> pd.DataFrame:
+    """Add analyst_target_gap and analyst_revision_momentum features.
+
+    analyst_target_gap: (consensus target / close) - 1
+    analyst_revision_momentum: net upgrades minus downgrades in rolling 90 days
+    """
+    if analyst_df.empty:
+        df["analyst_target_gap"] = 0.0
+        df["analyst_revision_momentum"] = 0.0
+        return df
+
+    df["date"] = pd.to_datetime(df["date"]).dt.as_unit("ns")
+    analyst_df = analyst_df.copy()
+    analyst_df["date"] = pd.to_datetime(analyst_df["date"]).dt.as_unit("ns")
+
+    # Build daily consensus target: rolling mean of last 10 analyst targets
+    targets = analyst_df[analyst_df["analyst_target"] > 0].copy()
+    if not targets.empty:
+        # Group by date (multiple actions same day), take mean target
+        daily_target = targets.groupby("date")["analyst_target"].mean().reset_index()
+        daily_target = daily_target.rename(columns={"analyst_target": "_analyst_target_raw"})
+        daily_target = daily_target.sort_values("date")
+
+        df = df.sort_values("date")
+        df = pd.merge_asof(df, daily_target, on="date", direction="backward")
+        df["analyst_target_gap"] = np.where(
+            (df["_analyst_target_raw"] > 0) & (df["close"] > 0),
+            df["_analyst_target_raw"] / df["close"] - 1,
+            0.0,
+        )
+        df.drop(columns=["_analyst_target_raw"], inplace=True)
+    else:
+        df["analyst_target_gap"] = 0.0
+
+    # Revision momentum: net actions (upgrades - downgrades) in rolling 90-day window
+    actions = analyst_df[["date", "action_score"]].copy()
+    if not actions.empty:
+        # For each trading date, count net upgrades in prior 90 days
+        df = df.sort_values("date")
+        momentum_values = []
+        action_dates = actions["date"].values
+        action_scores = actions["action_score"].values
+        for trade_date in df["date"].values:
+            window_start = trade_date - np.timedelta64(90, "D")
+            mask = (action_dates > window_start) & (action_dates <= trade_date)
+            momentum_values.append(int(action_scores[mask].sum()))
+        df["analyst_revision_momentum"] = momentum_values
+    else:
+        df["analyst_revision_momentum"] = 0.0
+
+    df[["analyst_target_gap", "analyst_revision_momentum"]] = (
+        df[["analyst_target_gap", "analyst_revision_momentum"]].ffill().fillna(0.0)
+    )
+    return df
+
+
+# ---------------------------------------------------------------------------
+# Short interest features (from yfinance info)
+# ---------------------------------------------------------------------------
+
+def _fetch_short_interest(ticker: str) -> dict:
+    """Fetch current short interest data. Returns a dict with pct and change."""
+    try:
+        t = yf.Ticker(ticker)
+        info = t.info
+        shares_short = info.get("sharesShort", 0) or 0
+        shares_prior = info.get("sharesShortPriorMonth", 0) or 0
+        float_shares = info.get("floatShares", 0) or 0
+
+        pct = info.get("shortPercentOfFloat", 0) or 0
+        change = (shares_short - shares_prior) / float_shares if float_shares > 0 else 0
+
+        return {"short_interest_pct": pct, "short_interest_change": change}
+    except Exception as exc:
+        log.warning("Could not fetch short interest for %s: %s", ticker, exc)
+        return {"short_interest_pct": 0.0, "short_interest_change": 0.0}
+
+
+def _add_short_interest(df: pd.DataFrame, short_data: dict) -> pd.DataFrame:
+    """Add short interest features as constant columns (updated bi-monthly by FINRA)."""
+    df["short_interest_pct"] = short_data.get("short_interest_pct", 0.0)
+    df["short_interest_change"] = short_data.get("short_interest_change", 0.0)
+    return df
+
+
+# ---------------------------------------------------------------------------
+# Sector-relative strength features
+# ---------------------------------------------------------------------------
+
+def _add_sector_relative_strength(
+    df: pd.DataFrame, market_df: pd.DataFrame | None, ticker: str
+) -> pd.DataFrame:
+    """Add sector-relative strength (stock return vs sector ETF return)."""
+    sector_etf = CFG.ticker_sector.get(ticker)
+    etf_col = f"{sector_etf.lower()}_close" if sector_etf else None
+
+    if market_df is None or market_df.empty or etf_col is None or etf_col not in market_df.columns:
+        df["sector_relative_20d"] = 0.0
+        df["sector_relative_50d"] = 0.0
+        return df
+
+    # Compute sector ETF returns on market_df
+    mkt = market_df[["date", etf_col]].copy()
+    mkt["date"] = pd.to_datetime(mkt["date"]).dt.as_unit("ns")
+    mkt[f"_sector_ret_20d"] = mkt[etf_col].pct_change(20)
+    mkt[f"_sector_ret_50d"] = mkt[etf_col].pct_change(50)
+    mkt = mkt[["date", "_sector_ret_20d", "_sector_ret_50d"]].sort_values("date")
+
+    df["date"] = pd.to_datetime(df["date"]).dt.as_unit("ns")
+    df = df.sort_values("date")
+    df = pd.merge_asof(df, mkt, on="date", direction="backward")
+
+    ticker_ret_20d = df["close"].pct_change(20)
+    ticker_ret_50d = df["close"].pct_change(50)
+    sector_20 = df["_sector_ret_20d"] if "_sector_ret_20d" in df.columns else 0
+    sector_50 = df["_sector_ret_50d"] if "_sector_ret_50d" in df.columns else 0
+    df["sector_relative_20d"] = ticker_ret_20d - sector_20
+    df["sector_relative_50d"] = ticker_ret_50d - sector_50
+
+    df.drop(columns=["_sector_ret_20d", "_sector_ret_50d"], errors="ignore", inplace=True)
+    df[["sector_relative_20d", "sector_relative_50d"]] = (
+        df[["sector_relative_20d", "sector_relative_50d"]].ffill().fillna(0)
+    )
+    return df
+
+
+# ---------------------------------------------------------------------------
+# Sector one-hot encoding
+# ---------------------------------------------------------------------------
+
+def _add_sector_encoding(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
+    """Add binary sector columns for the given ticker."""
+    sector_etf = CFG.ticker_sector.get(ticker)
+    for etf, sector_name in CFG.sector_etfs.items():
+        col = "sector_" + sector_name.lower().replace(" ", "_")
+        df[col] = 1.0 if etf == sector_etf else 0.0
+    return df
+
+
+# ---------------------------------------------------------------------------
 # Per-ticker feature engineering
 # ---------------------------------------------------------------------------
 
@@ -377,6 +550,8 @@ def build_features(
     market_df: pd.DataFrame | None = None,
     fund_df: pd.DataFrame | None = None,
     sentiment_df: pd.DataFrame | None = None,
+    analyst_df: pd.DataFrame | None = None,
+    short_data: dict | None = None,
 ) -> pd.DataFrame:
     """
     Apply all indicator builders to a single-ticker DataFrame and return
@@ -385,13 +560,16 @@ def build_features(
     Parameters
     ----------
     df : DataFrame with OHLCV + ticker columns
-    market_df : Optional market regime data (VIX + SPY)
+    market_df : Optional market regime data (VIX + SPY + sector ETFs)
     fund_df : Optional quarterly fundamentals for this ticker
     sentiment_df : Optional daily sentiment scores for this ticker
+    analyst_df : Optional timestamped analyst upgrades/downgrades
+    short_data : Optional dict with short_interest_pct and short_interest_change
     """
+    ticker = str(df["ticker"].iloc[0])
     df = df.copy().sort_values("date").reset_index(drop=True)
 
-    # Technical indicators (existing)
+    # Technical indicators
     df = _add_rsi(df)
     df = _add_macd(df)
     df = _add_bollinger_bands(df)
@@ -400,13 +578,29 @@ def build_features(
     df = _add_lag_features(df)
     df = _add_rolling_features(df)
 
-    # Fundamental features (new)
+    # Fundamental features
     if fund_df is None:
         fund_df = pd.DataFrame()
     df = _add_fundamental_features(df, fund_df)
 
-    # Market regime features (new)
+    # Market regime features (VIX + SPY)
     df = _add_market_regime(df, market_df)
+
+    # Sector-relative strength
+    df = _add_sector_relative_strength(df, market_df, ticker)
+
+    # Sector one-hot encoding
+    df = _add_sector_encoding(df, ticker)
+
+    # Analyst features (target gap + revision momentum)
+    if analyst_df is None:
+        analyst_df = pd.DataFrame()
+    df = _add_analyst_features(df, analyst_df)
+
+    # Short interest
+    if short_data is None:
+        short_data = {}
+    df = _add_short_interest(df, short_data)
 
     # Sentiment features
     if sentiment_df is not None and not sentiment_df.empty:
@@ -418,7 +612,7 @@ def build_features(
     # Target
     df = _add_target(df)
 
-    df = drop_na_rows(df, context=str(df["ticker"].iloc[0]))
+    df = drop_na_rows(df, context=ticker)
     return df
 
 
@@ -450,17 +644,28 @@ def run() -> None:
     else:
         log.warning("No sentiment.csv found — sentiment features will be neutral (0).")
 
-    # Fetch fundamentals per ticker and build features
+    # Fetch fundamentals, analyst data, and short interest per ticker
     log.info("Building features for %d tickers ...", df["ticker"].nunique())
     parts = []
     for ticker, grp in df.groupby("ticker", sort=False):
-        log.info("Fetching quarterly fundamentals for %s ...", ticker)
+        log.info("Fetching data for %s ...", ticker)
         fund_df = _fetch_quarterly_fundamentals(ticker)
         if not fund_df.empty:
             log.info("  %s: %d quarterly reports found.", ticker, len(fund_df))
         else:
             log.warning("  %s: no quarterly data available.", ticker)
-        parts.append(build_features(grp, market_df=market_df, fund_df=fund_df, sentiment_df=sentiment_df))
+
+        analyst_df = _fetch_analyst_data(ticker)
+        if not analyst_df.empty:
+            log.info("  %s: %d analyst actions found.", ticker, len(analyst_df))
+
+        short_data = _fetch_short_interest(ticker)
+
+        parts.append(build_features(
+            grp, market_df=market_df, fund_df=fund_df,
+            sentiment_df=sentiment_df, analyst_df=analyst_df,
+            short_data=short_data,
+        ))
 
     features_df = pd.concat(parts, ignore_index=True)
 

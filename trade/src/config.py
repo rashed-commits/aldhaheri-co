@@ -46,6 +46,27 @@ class Config:
     start_date: str = "2021-01-01"
     end_date: str = ""  # empty = use today's date (always train on latest data)
 
+    # ------------------------------------------------ sector mapping
+    # Maps each ticker to its SPDR sector ETF for sector-relative strength.
+    sector_etfs: Dict[str, str] = field(default_factory=lambda: {
+        "XLK": "Technology",
+        "XLC": "Communication Services",
+        "XLY": "Consumer Cyclical",
+        "XLF": "Financial Services",
+        "XLV": "Healthcare",
+        "XLE": "Energy",
+        "XLP": "Consumer Defensive",
+    })
+    ticker_sector: Dict[str, str] = field(default_factory=lambda: {
+        "AAPL": "XLK", "MSFT": "XLK", "NVDA": "XLK",
+        "GOOGL": "XLC", "META": "XLC",
+        "AMZN": "XLY", "TSLA": "XLY",
+        "BRK-B": "XLF", "JPM": "XLF", "V": "XLF",
+        "JNJ": "XLV", "LLY": "XLV",
+        "XOM": "XLE",
+        "PG": "XLP", "KO": "XLP", "WMT": "XLP",
+    })
+
     # -------------------------------------------------- feature-engineering
     rsi_period: int = 14
     macd_fast: int = 12

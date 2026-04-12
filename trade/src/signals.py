@@ -20,7 +20,10 @@ import pandas as pd
 import yfinance as yf
 
 from src.config import CFG
-from src.features import build_features, _fetch_quarterly_fundamentals
+from src.features import (
+    build_features, _fetch_quarterly_fundamentals,
+    _fetch_analyst_data, _fetch_short_interest,
+)
 from src.notifications import notify_feedback, notify_no_trade, notify_signals
 from src.utils import ensure_dir, get_logger
 
@@ -106,11 +109,15 @@ def load_model_artefacts(
 # ---------------------------------------------------------------------------
 
 def fetch_market_recent(lookback: int = _LOOKBACK_DAYS) -> pd.DataFrame:
-    """Download recent VIX + SPY data for market regime features."""
+    """Download recent VIX, SPY, and sector ETF data for market regime features."""
     end = pd.Timestamp.today().normalize()
     start = end - pd.Timedelta(days=lookback)
+    symbols = [("^VIX", "vix"), ("SPY", "spy")]
+    for etf in CFG.sector_etfs:
+        symbols.append((etf, etf.lower()))
+
     frames = []
-    for symbol, name in [("^VIX", "vix"), ("SPY", "spy")]:
+    for symbol, name in symbols:
         df = yf.download(
             symbol,
             start=start.strftime("%Y-%m-%d"),
@@ -127,11 +134,12 @@ def fetch_market_recent(lookback: int = _LOOKBACK_DAYS) -> pd.DataFrame:
         df = df[["date", "close"]].rename(columns={"close": f"{name}_close"})
         frames.append(df)
 
-    if len(frames) == 2:
-        return frames[0].merge(frames[1], on="date", how="outer")
-    elif frames:
-        return frames[0]
-    return pd.DataFrame()
+    if not frames:
+        return pd.DataFrame()
+    result = frames[0]
+    for f in frames[1:]:
+        result = result.merge(f, on="date", how="outer")
+    return result
 
 
 def _build_reasoning(row: pd.Series, feature_names: List[str]) -> List[Dict[str, Any]]:
@@ -160,14 +168,15 @@ def _build_reasoning(row: pd.Series, feature_names: List[str]) -> List[Dict[str,
                             "interpretation": "Neutral range"})
 
     # MACD
-    macd_hist = _val("macd_hist")
     macd = _val("macd")
-    if macd_hist is not None:
-        if macd_hist > 0:
-            factors.append({"indicator": "MACD", "value": round(macd_hist, 4),
+    macd_sig = _val("macd_signal")
+    if macd is not None and macd_sig is not None:
+        diff = macd - macd_sig
+        if diff > 0:
+            factors.append({"indicator": "MACD", "value": round(diff, 4),
                             "interpretation": "Bullish — MACD above signal line"})
         else:
-            factors.append({"indicator": "MACD", "value": round(macd_hist, 4),
+            factors.append({"indicator": "MACD", "value": round(diff, 4),
                             "interpretation": "Bearish — MACD below signal line"})
 
     # Bollinger Band position
@@ -230,6 +239,20 @@ def _build_reasoning(row: pd.Series, feature_names: List[str]) -> List[Dict[str,
             factors.append({"indicator": "ATR", "value": round(atr_pct, 2),
                             "interpretation": f"High volatility — {atr_pct:.1f}% daily range"})
 
+    # Sector relative strength
+    sr20 = _val("sector_relative_20d")
+    if sr20 is not None and abs(sr20) >= 0.02:
+        verb = "Outperforming" if sr20 > 0 else "Underperforming"
+        factors.append({"indicator": "Sector Relative Strength (20d)", "value": round(sr20 * 100, 2),
+                        "interpretation": f"{verb} sector ETF by {abs(sr20) * 100:.1f}%"})
+
+    # Analyst target gap
+    atg = _val("analyst_target_gap")
+    if atg is not None and abs(atg) >= 0.05:
+        direction = "below" if atg > 0 else "above"
+        factors.append({"indicator": "Analyst Target Gap", "value": round(atg * 100, 1),
+                        "interpretation": f"Trading {abs(atg) * 100:.0f}% {direction} analyst consensus"})
+
     # FinBERT Sentiment
     net_sent = _val("sentiment_net_score")
     pos_sent = _val("sentiment_positive_score")
@@ -268,14 +291,28 @@ def compute_signal(
         log.warning("Insufficient data for %s — skipping.", ticker)
         return None
 
-    # Fetch fundamentals for this ticker
+    # Fetch fundamentals, analyst data, and short interest for this ticker
     try:
         fund_df = _fetch_quarterly_fundamentals(ticker)
     except Exception:
         fund_df = pd.DataFrame()
 
     try:
-        features_df = build_features(df, market_df=market_df, fund_df=fund_df, sentiment_df=sentiment_df)
+        analyst_df = _fetch_analyst_data(ticker)
+    except Exception:
+        analyst_df = pd.DataFrame()
+
+    try:
+        short_data = _fetch_short_interest(ticker)
+    except Exception:
+        short_data = {}
+
+    try:
+        features_df = build_features(
+            df, market_df=market_df, fund_df=fund_df,
+            sentiment_df=sentiment_df, analyst_df=analyst_df,
+            short_data=short_data,
+        )
     except Exception as exc:
         log.error("Feature engineering failed for %s: %s", ticker, exc, exc_info=True)
         return None
