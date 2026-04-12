@@ -59,7 +59,7 @@ bash deploy.sh   # Commits, pushes, SSHs to VPS, pulls, rebuilds
 ## Tech Stack
 - **Hub**: React 19 + Vite + Tailwind 4, FastAPI + python-jose (JWT)
 - **Finance**: React 18 + Recharts + Tailwind 3, FastAPI + async SQLAlchemy + aiosqlite + Anthropic SDK
-- **Market**: Flask + Vanilla JS — **shelved**, static page only
+- **Market**: Flask + Vanilla JS + Anthropic SDK (Claude Haiku) — **shelved**, static page only
 - **Real Estate**: React 18 + Vite + Recharts, FastAPI, Playwright + BeautifulSoup scrapers
 - **Trade**: React 19 + Vite + Recharts, FastAPI, XGBoost + FinBERT sentiment, Alpaca SDK
 - **Databases**: All SQLite (no Postgres). Trade uses JSON files instead of a DB.
@@ -70,7 +70,7 @@ bash deploy.sh   # Commits, pushes, SSHs to VPS, pulls, rebuilds
 ### Docker Compose structure
 Root `docker-compose.yml` uses `include:` to merge per-project compose files. Hub services are defined directly in root. Each per-project compose file references `../.env` (the single root env file) and can be started independently. Frontend containers use multi-stage Docker builds (node → nginx) with per-project `nginx.conf` files for SPA routing (`try_files $uri $uri/ /index.html`). Finance frontend bakes `VITE_API_URL` and `VITE_API_KEY` as Docker build args — other frontends have no build-time env vars.
 
-### Services (10 total)
+### Services (11 total)
 | Service | Port | Health |
 |---|---|---|
 | hub-frontend / hub-backend | 4000 / 4001 | /health (backend) |
@@ -172,6 +172,12 @@ Daily scraper cron removed from VPS on 2026-03-28.
 - **10:00 UTC**: Telegram alert for unidentified transactions (`notifications.py`)
 - **1st of month 09:00 UTC**: Statement reminder (`notifications.py`)
 
+### Trade (VPS crontab, EDT timezone)
+- **6:00 AM Mon-Fri (10:00 UTC)**: Phase 4 — signal generation + feedback loop
+- **10:00 AM Mon-Fri (14:00 UTC)**: Phase 5 — trade execution
+- **9:30 AM Mon-Fri**: FinBERT sentiment worker (separate container)
+- **6:00 AM Sunday (10:00 UTC)**: Phases 1-3 — full retrain + weekly Telegram summary
+
 ## Coding Conventions
 - **Python**: PEP8, type hints, async handlers, APIRouter pattern
 - **JavaScript**: Functional components, hooks, Tailwind utility classes
@@ -186,7 +192,7 @@ Daily scraper cron removed from VPS on 2026-03-28.
 - Finance charts: Green (#34D399) = inflow, Red (#F87171) = outflow
 
 ## Safe-Change Rules
-- Never modify JWT_SECRET — shared across all 10 containers
+- Never modify JWT_SECRET — shared across all 11 containers
 - Never commit `.env` files or raw bank statement CSVs (`Statements/` directory)
 - Never remove or change any `/health` endpoint shape
 - Never change finance webhook path (`/webhook/sms`) — Tasker depends on it

@@ -71,6 +71,7 @@ The root `docker-compose.yml` uses `include:` to merge per-project compose files
 | Real Estate Backend | realestate-backend | 8002 | /health |
 | Real Estate Frontend | realestate-frontend | 3002 | -- |
 | Trade Bot | trade-bot | -- | cron-driven |
+| Trade Bot Sentiment | trade-bot-sentiment | -- | cron-driven (FinBERT) |
 | Trade Bot API | trade-bot-api | 8003 | /health |
 | Trade Bot Dashboard | trade-bot-dashboard | 3003 | -- |
 
