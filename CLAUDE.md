@@ -139,12 +139,14 @@ Rejects: empty/short SMS, unresolved Tasker variables, failed/declined keywords,
 ## Trade Pipeline Phases
 CLI-driven via `trade/main.py --phase N` (add `--dry-run` to skip real trades):
 1. **Ingest**: OHLCV + market data from yfinance/Alpaca
-2. **Features**: Technical indicators, fundamental ratios, FinBERT sentiment (`src/sentiment.py`, lazy-loads ProsusAI/finbert, needs ~500MB RAM)
+2. **Features**: Technical indicators, fundamental ratios, analyst data, sector-relative strength, short interest, FinBERT sentiment
 3. **Train**: XGBoost with feature pruning + Platt calibration → `model/saved/`
 4. **Signals**: Daily buy/sell → `output/signals_YYYY-MM-DD.json` (fetches live sentiment for reasoning)
 5. **Execute**: Reconcile positions against Alpaca (`reconcile_positions()`) + paper trade → `output/open_positions.json`
 
 **Position reconciliation** (Phase 5): Before trading, `reconcile_positions()` syncs `open_positions.json` against Alpaca's actual positions to prevent drift from manual trades. Skipped in `--dry-run`. Fails safe — keeps local positions unchanged if Alpaca API fails. Uses reverse `alpaca_symbol_map` from `CFG` to translate Alpaca symbols back to yfinance tickers.
+
+**Feature set (49 active after pruning)**: Technical indicators (RSI, MACD, Bollinger, ATR, OBV, volume z-score), rolling window stats, lagged returns, fundamental ratios (from yfinance quarterly financials), market regime (VIX, SPY), sector-relative strength (vs SPDR sector ETFs: XLK/XLC/XLY/XLF/XLV/XLE/XLP), sector one-hot encoding, analyst features (target gap from `upgrades_downgrades`, revision momentum), and short interest. Sector ETF mapping in `CFG.ticker_sector`. Dropped features: `f_current_ratio`, `f_operating_margin`, `macd_hist` (unstable across folds).
 
 **FinBERT sentiment**: `src/sentiment.py` lazy-loads ProsusAI/finbert on first call. Container memory raised to 2G (model needs ~500MB RAM, CPU-only PyTorch). Sentiment accumulates in `data/sentiment.csv`; Phase 4 fetches live sentiment for signal reasoning. **Suspended from model training** (0.45% row coverage, 0.0 feature importance). Accumulation pipeline runs passively; reintroduce to model when coverage exceeds 30%. Controlled by `_SUSPENDED_FEATURES` list in `train.py`.
 
