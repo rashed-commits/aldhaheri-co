@@ -99,12 +99,11 @@ All services read from the single root `.env`. See [`.env.example`](.env.example
 |---|---|---|
 | `JWT_SECRET` | All | Shared SSO signing secret |
 | `HUB_USERNAME` / `HUB_PASSWORD` | Hub | Login credentials |
-| `ANTHROPIC_API_KEY` | Finance | Claude AI for SMS parsing + chatbot |
+| `ANTHROPIC_API_KEY` | Finance, Market | Claude AI for SMS parsing, chatbot, signal classification |
 | `WEBHOOK_API_KEY` | Finance | Tasker webhook auth |
 | `TELEGRAM_BOT_TOKEN` | Finance, Trade | Telegram notifications (independent per service) |
 | `TELEGRAM_CHATBOT_TOKEN` | Finance | Telegram chatbot (separate bot) |
 | `TELEGRAM_CHAT_ID` | Finance, Trade | Telegram chat target |
-| `OPENAI_API_KEY` | Market | GPT-4o-mini signal classification |
 | `ALPACA_API_KEY` / `ALPACA_SECRET_KEY` | Trade | Alpaca paper trading |
 | `BREVO_API_KEY` | Real Estate | Email report delivery |
 | `SENDER_EMAIL` / `REPORT_RECIPIENT` | Real Estate | Report sender and recipient |
@@ -254,7 +253,7 @@ All `/api/*` endpoints require a valid session cookie unless noted otherwise. Ev
 |---|---|
 | Frontends | React 18/19, Vite, Tailwind CSS 3/4, Recharts |
 | Backends | FastAPI (4 services), Flask (Market) |
-| AI/ML | Claude Sonnet (Finance), GPT-4o-mini (Market), XGBoost + Platt calibration + FinBERT (Trade) |
+| AI/ML | Claude Sonnet (Finance), Claude Haiku (Market), XGBoost + Platt calibration + FinBERT (Trade) |
 | Databases | SQLite everywhere, JSON files (Trade pipeline output) |
 | Infrastructure | Docker Compose, Nginx + Certbot, DigitalOcean Ubuntu VPS |
 | Trading | Alpaca SDK (paper trading) |

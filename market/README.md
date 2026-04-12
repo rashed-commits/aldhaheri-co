@@ -123,7 +123,7 @@ docker compose -f /opt/uae-market-intel/docker-compose.yml up -d --build --force
 - [x] Centralized cookie-based auth via aldhaheri.co hub
 - [ ] Expand data sources (LinkedIn, Facebook Groups, Arabic forums)
 - [ ] Automated data collection pipeline (replace n8n)
-- [ ] AI-powered analysis (GPT-4o signal extraction)
+- [ ] AI-powered analysis (Claude AI signal extraction)
 - [ ] Daily email digest
 
 ---

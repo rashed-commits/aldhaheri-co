@@ -2,7 +2,7 @@
 UAE Market Intelligence — Scraping & AI Classification Pipeline
 
 Scrapes posts from Reddit, Twitter/X, LinkedIn, Facebook Groups, and News/Forums,
-classifies them with GPT-4o-mini, and stores signals in the existing SQLite database.
+classifies them with Claude Haiku, and stores signals in the existing SQLite database.
 
 Usage:
     python scraper.py          # Run full pipeline (for cron)
@@ -31,7 +31,7 @@ MAX_ITEMS = int(os.environ.get("SCRAPE_MAX_ITEMS_PER_SOURCE", "50"))
 # ── Lazy client helpers ──────────────────────────────────────────────
 _apify_client = None
 _tavily_client = None
-_openai_client = None
+_anthropic_client = None
 
 
 def _apify():
@@ -50,12 +50,12 @@ def _tavily():
     return _tavily_client
 
 
-def _openai():
-    global _openai_client
-    if _openai_client is None:
-        from openai import OpenAI
-        _openai_client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-    return _openai_client
+def _anthropic():
+    global _anthropic_client
+    if _anthropic_client is None:
+        from anthropic import Anthropic
+        _anthropic_client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    return _anthropic_client
 
 
 # ── Scrapers ─────────────────────────────────────────────────────────
@@ -496,21 +496,21 @@ Respond with ONLY a valid JSON object (no markdown fences, no extra text):
 
 
 def classify_post(post):
-    """Send a post to GPT-4o-mini and return structured classification."""
+    """Send a post to Claude and return structured classification."""
     text = (post.get("text") or "")[:2000]
     if not text.strip() or len(text.strip()) < 20:
         return None
     try:
-        resp = _openai().chat.completions.create(
-            model="gpt-4o-mini",
+        resp = _anthropic().messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=500,
+            system=CLASSIFY_PROMPT,
             messages=[
-                {"role": "system", "content": CLASSIFY_PROMPT},
                 {"role": "user", "content": f"Platform: {post['platform']}\nURL: {post['source_url']}\n\nPost:\n{text}"},
             ],
             temperature=0.2,
-            max_tokens=500,
         )
-        raw = resp.choices[0].message.content.strip()
+        raw = resp.content[0].text.strip()
         # Strip markdown fences if present
         if raw.startswith("```"):
             raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
@@ -645,7 +645,7 @@ Score higher for: multiple supporting signals, high pain-point density, clear re
 
 
 def generate_opportunities():
-    """Read signals from DB, ask GPT-4o-mini to synthesize opportunities, store them."""
+    """Read signals from DB, ask Claude to synthesize opportunities, store them."""
     log.info("=== Generating opportunities ===")
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -662,16 +662,16 @@ def generate_opportunities():
     )
 
     try:
-        resp = _openai().chat.completions.create(
-            model="gpt-4o-mini",
+        resp = _anthropic().messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=4000,
+            system=OPP_PROMPT,
             messages=[
-                {"role": "system", "content": OPP_PROMPT},
                 {"role": "user", "content": f"Here are the current market signals:\n\n{signal_text}"},
             ],
             temperature=0.4,
-            max_tokens=4000,
         )
-        raw = resp.choices[0].message.content.strip()
+        raw = resp.content[0].text.strip()
         if raw.startswith("```"):
             raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
             if raw.endswith("```"):
