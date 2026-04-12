@@ -138,8 +138,8 @@ Rejects: empty/short SMS, unresolved Tasker variables, failed/declined keywords,
 
 ## Trade Pipeline Phases
 CLI-driven via `trade/main.py --phase N` (add `--dry-run` to skip real trades):
-1. **Ingest**: OHLCV + market data from yfinance/Alpaca
-2. **Features**: Technical indicators, fundamental ratios, analyst data, sector-relative strength, short interest, FinBERT sentiment
+1. **Ingest**: OHLCV + market data (VIX, SPY, 7 sector ETFs) from yfinance/Alpaca
+2. **Features**: Technical indicators, fundamental ratios, analyst data (target gap, revision momentum from `upgrades_downgrades`), sector-relative strength (vs SPDR ETFs), short interest, sector one-hot, FinBERT sentiment
 3. **Train**: XGBoost with feature pruning + Platt calibration → `model/saved/`
 4. **Signals**: Daily buy/sell → `output/signals_YYYY-MM-DD.json` (fetches live sentiment for reasoning)
 5. **Execute**: Reconcile positions against Alpaca (`reconcile_positions()`) + paper trade → `output/open_positions.json`
@@ -151,7 +151,7 @@ CLI-driven via `trade/main.py --phase N` (add `--dry-run` to skip real trades):
 **FinBERT sentiment**: `src/sentiment.py` lazy-loads ProsusAI/finbert on first call. Container memory raised to 2G (model needs ~500MB RAM, CPU-only PyTorch). Sentiment accumulates in `data/sentiment.csv`; Phase 4 fetches live sentiment for signal reasoning. **Suspended from model training** (0.45% row coverage, 0.0 feature importance). Accumulation pipeline runs passively; reintroduce to model when coverage exceeds 30%. Controlled by `_SUSPENDED_FEATURES` list in `train.py`.
 
 ### Trade (VPS crontab, EDT timezone)
-Phases 4+5 weekdays 10:00 AM / 2:00 PM UTC (6:00 AM / 10:00 AM EDT), Phases 1-3 Sunday 6:00 AM EDT (10:00 UTC). Phase 4 includes feedback loop evaluation of past predictions (directional accuracy only — HOLD signals excluded from scoring). Signal thresholds: buy=0.55, sell=0.35. Model uses Platt-calibrated XGBoost (CalibratedClassifierCV with TimeSeriesSplit, not StratifiedKFold). Drawdown circuit breaker halts new buys at 8% drawdown from peak OR 8% decline from inception equity — whichever triggers first.
+Phases 4+5 weekdays 10:00 AM / 2:00 PM UTC (6:00 AM / 10:00 AM EDT), Phases 1-3 Sunday 6:00 AM EDT (10:00 UTC). FinBERT sentiment worker runs weekdays 9:30 AM ET (separate container). Phase 4 includes feedback loop evaluation of past predictions (directional accuracy only — HOLD signals excluded from scoring, 10-day evaluation horizon). **Regime-adjusted signal thresholds** based on VIX level: Low VIX (<15) buy≥0.58/sell≤0.35, Normal (15-20) buy≥0.55/sell≤0.35, Elevated (20-25) buy≥0.52/sell≤0.38, High (>25) buy≥0.50/sell≤0.40. Model uses Platt-calibrated XGBoost (CalibratedClassifierCV with TimeSeriesSplit, not StratifiedKFold). 10-day prediction target (`CFG.target_horizon=10`). Drawdown circuit breaker halts new buys at 8% drawdown from peak OR 8% decline from inception equity — whichever triggers first. **Weekly Telegram summary** fires after Sunday retrain with CV metrics, signal distribution, trade count, circuit breaker status, and abnormality flags.
 
 ### Market — DISABLED
 Daily scraper cron removed from VPS on 2026-03-28.

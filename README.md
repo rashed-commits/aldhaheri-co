@@ -26,7 +26,7 @@ UAE business signal intelligence. Currently offline — serves a static "Coming 
 Property analytics for Abu Dhabi and Dubai. Scrapes PropertyFinder and Bayut, scores listings on 4 opportunity signals (rental yield, price discount, price drops, off-plan), delivers daily PDF reports via email, and serves a React dashboard with area benchmarks and listing tables.
 
 ### Trade — [trade.aldhaheri.co](https://trade.aldhaheri.co)
-ML-powered stock trading bot. Five-phase pipeline: data ingestion (yfinance/Alpaca), feature engineering (technicals + fundamentals), XGBoost model training with Platt-calibrated probabilities (TimeSeriesSplit), daily signal generation, and Alpaca paper trade execution with position reconciliation. Drawdown circuit breaker halts trading at 8% decline from peak or inception. Prediction feedback loop tracks directional accuracy (BUY/SELL only, HOLD excluded). FinBERT sentiment runs passively (accumulating data) but is suspended from model training until coverage exceeds 30%. React dashboard for portfolio monitoring.
+ML-powered stock trading bot. Five-phase pipeline: data ingestion (yfinance/Alpaca), feature engineering (technicals + fundamentals + analyst data + sector-relative strength + short interest), XGBoost model training with Platt-calibrated probabilities (TimeSeriesSplit), daily signal generation with VIX regime-adjusted thresholds, and Alpaca paper trade execution with position reconciliation. 10-day prediction horizon. Drawdown circuit breaker halts trading at 8% decline from peak or inception. Prediction feedback loop tracks directional accuracy (BUY/SELL only, HOLD excluded). Weekly Telegram summary after each Sunday retrain. FinBERT sentiment runs passively (accumulating data) but is suspended from model training until coverage exceeds 30%. React dashboard for portfolio monitoring.
 
 ## Architecture
 
@@ -154,7 +154,8 @@ ssh root@165.232.162.72 "cd /opt/aldhaheri-co && docker compose ps"
 ### Trade (VPS crontab, EDT timezone)
 - **10:00 AM Mon-Fri** — Phase 4: signal generation + feedback loop evaluation
 - **2:00 PM Mon-Fri** — Phase 5: trade execution with position reconciliation
-- **6:00 AM Sunday** — Phases 1-3: full retrain (data ingest + sentiment + training)
+- **6:00 AM Sunday** — Phases 1-3: full retrain (data ingest + features + training) + weekly Telegram summary
+- **9:30 AM Mon-Fri** — FinBERT sentiment worker (separate container)
 
 ### Market (VPS crontab) — DISABLED
 - Daily scraper cron removed on 2026-03-28
