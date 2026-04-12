@@ -162,6 +162,123 @@ def notify_feedback(result: dict) -> None:
     )
 
 
+def notify_weekly_summary() -> None:
+    """Send a post-retrain weekly summary to Telegram.
+
+    Includes CV metrics, week's signal distribution, trade count,
+    circuit breaker status, and any abnormality flags.
+    """
+    import json
+    from datetime import date, timedelta
+
+    lines = ["📋 *Weekly Trade-Bot Summary*", ""]
+
+    # CV metrics from latest retrain
+    metrics_path = CFG.model_dir / "metrics.json"
+    if metrics_path.exists():
+        with open(metrics_path) as f:
+            m = json.load(f)
+        acc = m["accuracy"]["mean"] * 100
+        auc = m["roc_auc"]["mean"] * 100
+        f1 = m["f1"]["mean"] * 100
+        fold_accs = [round(v * 100, 1) for v in m["accuracy"]["values"]]
+        lines.append(f"*Model (retrained today)*")
+        lines.append(f"  Accuracy: {acc:.1f}%  AUC: {auc:.1f}%  F1: {f1:.1f}%")
+        lines.append(f"  Folds: {fold_accs}")
+
+    # Feature count
+    fn_path = CFG.model_dir / "feature_names.json"
+    if fn_path.exists():
+        with open(fn_path) as f:
+            feat_names = json.load(f)
+        lines.append(f"  Features: {len(feat_names)}")
+    lines.append("")
+
+    # Signal distribution for past 7 days
+    today = date.today()
+    week_start = today - timedelta(days=7)
+    buys, sells, holds = 0, 0, 0
+    signal_days = 0
+    for i in range(7):
+        d = (week_start + timedelta(days=i)).isoformat()
+        sig_path = CFG.output_dir / f"signals_{d}.json"
+        if sig_path.exists():
+            signal_days += 1
+            with open(sig_path) as f:
+                sigs = json.load(f)
+            for s in sigs:
+                sig = s.get("signal", "HOLD")
+                if sig == "BUY":
+                    buys += 1
+                elif sig == "SELL":
+                    sells += 1
+                else:
+                    holds += 1
+
+    lines.append(f"*Signals (past 7 days, {signal_days} trading days)*")
+    lines.append(f"  BUY: {buys}  SELL: {sells}  HOLD: {holds}")
+    total_dir = buys + sells
+    lines.append(f"  Directional: {total_dir}")
+    lines.append("")
+
+    # Trade count (open positions)
+    pos_path = CFG.output_dir / "open_positions.json"
+    if pos_path.exists():
+        with open(pos_path) as f:
+            positions = json.load(f)
+        lines.append(f"*Open positions:* {len(positions)}")
+    else:
+        lines.append("*Open positions:* 0")
+
+    # Circuit breaker
+    halt_path = CFG.output_dir / "drawdown_halt.json"
+    if halt_path.exists():
+        with open(halt_path) as f:
+            halt = json.load(f)
+        halt_until = halt.get("halt_until")
+        if halt_until:
+            lines.append(f"⚠️ *Circuit breaker ACTIVE* until {halt_until}")
+        else:
+            lines.append("Circuit breaker: clear")
+    lines.append("")
+
+    # Feedback accuracy (recent entries)
+    fb_path = CFG.output_dir / "feedback_history.json"
+    if fb_path.exists():
+        with open(fb_path) as f:
+            fb = json.load(f)
+        # Entries from the last 2 weeks
+        recent = [e for e in fb if e.get("signal_date", "") >= (today - timedelta(days=14)).isoformat()]
+        if recent:
+            lines.append(f"*Recent feedback ({len(recent)} evals)*")
+            for e in recent[-3:]:
+                da = e.get("directional_accuracy")
+                dt = e.get("directional_total", 0)
+                da_str = f"{da:.0%}" if da is not None else "N/A"
+                lines.append(f"  {e['signal_date']}: dir_acc={da_str} ({dt} trades)")
+        else:
+            lines.append("*Feedback:* no recent evaluations")
+    lines.append("")
+
+    # Abnormality flags
+    flags = []
+    if metrics_path.exists():
+        last_fold = m["accuracy"]["values"][-1]
+        if last_fold < 0.50:
+            flags.append(f"Fold 5 accuracy below 50% ({last_fold*100:.1f}%)")
+    if total_dir == 0 and signal_days >= 3:
+        flags.append("Zero directional signals all week")
+
+    if flags:
+        lines.append("🚩 *Flags*")
+        for flag in flags:
+            lines.append(f"  - {flag}")
+    else:
+        lines.append("✅ No abnormalities detected")
+
+    _send_message("\n".join(lines))
+
+
 def notify_error(phase: str, error_msg: str) -> None:
     """Alert on pipeline error."""
     _send_message(f"❌ *Error in {phase}*\n```\n{error_msg}\n```")

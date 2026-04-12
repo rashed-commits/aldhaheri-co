@@ -26,7 +26,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / ".env")
 
-from src.notifications import notify_error, notify_pipeline_complete, notify_pipeline_start
+from src.notifications import notify_error, notify_pipeline_complete, notify_pipeline_start, notify_weekly_summary
 from src.utils import get_logger
 
 log = get_logger("main")
@@ -124,6 +124,8 @@ def main() -> None:
             run_phase1()
             run_phase2()
             run_phase3()
+            # Weekly summary after Sunday retrain
+            notify_weekly_summary()
     except Exception as exc:
         log.error("Pipeline aborted due to error above.")
         notify_error(phase_label, str(exc))
