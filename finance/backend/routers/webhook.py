@@ -171,7 +171,7 @@ async def receive_sms(
 
     # Normalize account names
     account = parsed.get("account") or ""
-    account_map = {"XXX810002": "810002", "XXX920001": "920001"}
+    account_map = {"XXX810002": "810002", "XXX920001": "920001", "XXX920002": "920002"}
     account = account_map.get(account, account)
 
     # For transfers, extract recipient as merchant from TRF OUT TO pattern
