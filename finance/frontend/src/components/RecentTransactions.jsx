@@ -271,6 +271,7 @@ export default function RecentTransactions({ transactions, onRefresh, allCategor
         <table className="w-full text-sm">
           <thead>
             <tr className="text-gray-500 border-b border-gray-800">
+              <th className="py-2 px-2 text-left">#</th>
               <SortHeader label="Date" field="date" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
               <SortHeader label="Time" field="time" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
               <SortHeader label="Account" field="account" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
@@ -281,11 +282,12 @@ export default function RecentTransactions({ transactions, onRefresh, allCategor
             </tr>
           </thead>
           <tbody>
-            {paged.map((t) => (
+            {paged.map((t, idx) => (
               <tr
                 key={t.id}
                 className={`border-b border-gray-800/50 hover:bg-gray-800/30 ${deletingId === t.id ? "bg-red-950/20" : ""}`}
               >
+                <td className="py-2 px-2 text-gray-500">{(localPage - 1) * PAGE_SIZE + idx + 1}</td>
                 <td className="py-2 px-2">{t.date}</td>
                 <td className="py-2 px-2">{t.time}</td>
                 <td className="py-2 px-2 font-mono text-xs">{t.account}</td>
@@ -300,7 +302,7 @@ export default function RecentTransactions({ transactions, onRefresh, allCategor
             ))}
             {paged.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-gray-600">
+                <td colSpan={8} className="py-8 text-center text-gray-600">
                   No transactions found
                 </td>
               </tr>
