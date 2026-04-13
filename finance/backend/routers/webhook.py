@@ -141,6 +141,29 @@ async def receive_sms(
 
     parsed = await parse_sms(sms_text)
 
+    # --- Date normalization ---
+    # UAE bank SMS uses DD/MM/YYYY.  Claude sometimes keeps it verbatim
+    # instead of converting to MM/DD/YYYY.  Extract from raw SMS and
+    # convert reliably; fall back to parsed date otherwise.
+    sms_date_match = re.search(r"on (\d{2})/(\d{2})/(\d{4})", sms_text)
+    if sms_date_match:
+        dd, mm, yyyy = sms_date_match.group(1), sms_date_match.group(2), sms_date_match.group(3)
+        parsed["date"] = f"{mm}/{dd}/{yyyy}"
+    elif parsed.get("date"):
+        # No date in SMS — validate parsed date isn't in the future
+        try:
+            uae_now = datetime.now(timezone(timedelta(hours=4)))
+            pd = datetime.strptime(parsed["date"], "%m/%d/%Y")
+            if pd.date() > uae_now.date():
+                # Likely DD/MM swap — try reversing
+                parts = parsed["date"].split("/")
+                swapped = f"{parts[1]}/{parts[0]}/{parts[2]}"
+                sd = datetime.strptime(swapped, "%m/%d/%Y")
+                if sd.date() <= uae_now.date():
+                    parsed["date"] = swapped
+        except ValueError:
+            pass
+
     # Skip zero-amount transactions
     if parsed.get("amount", 0.0) == 0 and parsed.get("value_aed", 0.0) == 0:
         logger.info("Skipped zero-amount transaction: %s", sms_text[:80])

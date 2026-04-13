@@ -18,7 +18,7 @@ Return exactly this structure:
   "amount": 0.0,
   "currency": "AED",
   "value_aed": 0.0,
-  "date": "MM/DD/YYYY",
+  "date": "MM/DD/YYYY (convert from DD/MM/YYYY if that is how it appears in the SMS)",
   "time": "HH:MM AM/PM",
   "merchant": "name or null",
   "category": "Food & Dining|Shopping|Transport|Healthcare|Education|Entertainment|Travel|Real Estate|Internal Transfers|Credit Card Payment|Cash Withdrawal|Cheque Deposit|Salary|Allowance|Bills|Beauty & Personal Care|Car Expenses|Fuel Expenses|Charity|Family Transfer|Maid Expenses|Laundry & Dry Cleaning|Traffic Fines & Fees|Loan|Bank Charges|Insurance|Software & Subscriptions|Gaming|Hotels & Accommodation|Interest & Cash Back Earnings|Refund|Government|Groceries|Home & Furniture|Electronics|Unidentified|Other",
