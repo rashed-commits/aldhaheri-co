@@ -109,7 +109,8 @@ Root `docker-compose.yml` uses `include:` to merge per-project compose files. Hu
 
 ### Container resources
 - All frontends/backends: 512M memory, 0.5 CPU
-- **Trade bot**: 2G memory, 1.0 CPU (FinBERT model needs ~500MB)
+- **trade-bot**: 2G memory, 1.0 CPU
+- **trade-bot-sentiment**: 1800M memory, 3G swap, `restart: "no"` (FinBERT model needs ~500MB RAM, CPU-only PyTorch; no restart to avoid OOM loops)
 - Logging: `json-file` driver, 10MB max × 3 files per service
 
 ### Nginx (VPS reverse proxy)
@@ -204,7 +205,7 @@ Daily scraper cron removed from VPS on 2026-03-28.
 ## Environment Variables
 All services read from the single root `.env` file. See `.env.example` for the full list. Key shared var: `JWT_SECRET` (used by ALL services). Each project section in `.env.example` documents its own vars.
 
-Note: `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are used independently by both Finance and Trade containers.
+**Telegram bots**: `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` are used independently by both Finance (notifications, webhook alerts) and Trade (signals, weekly summary) containers. `TELEGRAM_CHATBOT_TOKEN` is a separate bot token used only by the Finance conversational chatbot (`telegram_bot.py`).
 
 ## Adding a New Project
 1. Create `<project>/` directory with backend/frontend and its own `docker-compose.yml`
@@ -226,3 +227,4 @@ Per-project `.env.example` and `deploy.sh` in subdirectories are leftovers — u
 - **IP**: 165.232.162.72 | **Repo**: `/opt/aldhaheri-co` | **Backups**: `/opt/backups/`
 - Check status: `ssh root@165.232.162.72 "cd /opt/aldhaheri-co && docker compose ps"`
 - **SSH access is available** — Claude Code can SSH into the VPS to manage crontab, restart containers, check logs, edit nginx configs, run deployments, and perform other server-side operations directly
+- **Initial provisioning**: `vps-setup.sh` clones the repo, installs nginx configs from `nginx/`, and runs certbot for SSL
