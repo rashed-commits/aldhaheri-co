@@ -15,6 +15,8 @@ Key features:
 - **Full merchant search** across the entire transaction history — the chatbot sees the last 100 transactions plus unlimited keyword-matched results from all records
 - **CSV bank statement import** for reconciliation against existing transactions
 - **Auto-categorization** by merchant history, 443-rule keyword lookup, Claude AI, and Telegram fallback
+- **Date normalization** — UAE bank SMS uses DD/MM/YYYY; the webhook extracts and converts dates reliably via regex, with a future-date guard as fallback
+- **Account normalization** — account variants (e.g. `XXX920002`) are mapped to canonical short forms (e.g. `920002`) on ingestion
 - **Pending transaction filter** — automatically rejects uncleared/pending SMS (e.g. cheque deposits awaiting clearance) so only confirmed transactions are recorded
 - **Investment portfolio tracker** (`/investments`) — tracks stock/ETF positions with live prices via yfinance, USD/AED conversion, per-lot P&L, historical value chart, close positions (full or partial) with realized P&L tracking and trade history. Shows price update timestamp (UAE time) next to the exchange rate.
 - **Unified search filtering** — the transaction search box filters charts, stat cards, and summary in real time (same behavior as the category/account/date toggle filters)
@@ -287,6 +289,8 @@ The webhook handles bank transfers with automatic reconciliation:
 - **Balance monitoring**: Internal Transfers and Credit Card Payments trigger a Telegram warning if total inflows ≠ total outflows
 
 ### Dashboard Charts
+
+The transaction table includes a `#` column showing the database transaction ID (matches IDs in Telegram notifications for easy cross-reference). All columns are sortable.
 
 Six charts in a 2-column grid:
 

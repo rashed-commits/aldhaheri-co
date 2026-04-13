@@ -134,6 +134,12 @@ Configs in `nginx/` directory, deployed to `/etc/nginx/sites-available/` on VPS.
 
 **Non-transfers/non-cheques**: Priority order: merchant history → keyword categorizer (`categorizer.py`, 443 rules) → Claude parser guess → Telegram help request
 
+### Date normalization (webhook.py)
+UAE bank SMS uses DD/MM/YYYY format. The webhook extracts dates via regex (`on DD/MM/YYYY`) and converts to MM/DD/YYYY before storage. For SMS without explicit dates, a future-date guard swaps DD/MM if the parsed date is after today (UAE time). The parser prompt also hints Claude to convert, but the regex is the reliable path.
+
+### Account normalization (webhook.py)
+Account variants like `XXX810002`, `XXX920001`, `XXX920002` are mapped to short forms (`810002`, `920001`, `920002`) via `account_map` dict after parsing. Add new mappings there when new account formats appear.
+
 ### Webhook ingestion guards (webhook.py)
 Rejects: empty/short SMS, unresolved Tasker variables, failed/declined keywords, pending/uncleared transactions (e.g. "subject to verification", "pending clearance", "cheque will be processed"), exact duplicate SMS, zero-amount transactions, confirmation SMS (processed as merchant update, not new transaction). Cheque deposits are only recorded once a separate confirmation SMS arrives (pending cheque notifications are filtered out). After save, checks for suspected repeats (same merchant + amount + date) and alerts via Telegram.
 
