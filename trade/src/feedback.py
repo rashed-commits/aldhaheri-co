@@ -1,7 +1,8 @@
 """
 Prediction Feedback Loop
 =========================
-Evaluates past signal predictions against actual 5-day forward returns.
+Evaluates past signal predictions against actual forward returns over
+``CFG.target_horizon`` trading days (default 10).
 Called at the end of Phase 4 to track model accuracy over time.
 """
 
@@ -27,7 +28,7 @@ def _get_signal_file(signal_date: str) -> Optional[Path]:
     return path if path.exists() else None
 
 
-def _get_actual_return(ticker: str, signal_date: str, horizon: int = 5) -> Optional[float]:
+def _get_actual_return(ticker: str, signal_date: str, horizon: int = CFG.target_horizon) -> Optional[float]:
     """
     Compute the actual forward return for *ticker* over *horizon* trading days
     starting from *signal_date*.
@@ -63,12 +64,13 @@ def evaluate_predictions(
 
     Returns a dict with accuracy stats, or None if no evaluable signals exist.
     """
-    # Look for signal files from ~7-10 calendar days ago (5 trading days + weekends)
+    # Look back enough calendar days to guarantee `horizon + 1` trading-day
+    # bars are available, even if the window straddles two weekends.
     today = date.today()
     evaluable_date = None
     signal_path = None
 
-    for days_back in range(horizon + 2, horizon + 12):
+    for days_back in range(horizon + 5, horizon + 15):
         check_date = (today - timedelta(days=days_back)).isoformat()
         path = _get_signal_file(check_date)
         if path is not None:
@@ -78,7 +80,7 @@ def evaluate_predictions(
 
     if signal_path is None or evaluable_date is None:
         log.info("No signal file found for evaluation (checked %d-%d days back).",
-                 horizon + 2, horizon + 11)
+                 horizon + 5, horizon + 14)
         return None
 
     with open(signal_path) as fh:
