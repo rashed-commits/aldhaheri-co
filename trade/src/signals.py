@@ -17,9 +17,9 @@ from typing import Any, Dict, List
 import joblib
 import numpy as np
 import pandas as pd
-import yfinance as yf
 
 from src.config import CFG
+from src.data_provider import fetch_ohlcv, write_status
 from src.features import (
     build_features, _fetch_quarterly_fundamentals,
     _fetch_analyst_data, _fetch_short_interest,
@@ -38,8 +38,8 @@ _LOOKBACK_DAYS = 120   # calendar days — must exceed indicator warmup (~50 tra
 
 def fetch_recent(ticker: str, lookback: int = _LOOKBACK_DAYS) -> pd.DataFrame:
     """
-    Download the most recent *lookback* calendar days of OHLCV data for
-    *ticker* via yfinance.
+    Download the most recent *lookback* calendar days of dividend-adjusted
+    OHLCV data for *ticker* via the unified data provider.
 
     Returns
     -------
@@ -49,22 +49,9 @@ def fetch_recent(ticker: str, lookback: int = _LOOKBACK_DAYS) -> pd.DataFrame:
     """
     end = pd.Timestamp.today().normalize()
     start = end - pd.Timedelta(days=lookback)
-    df = yf.download(
-        ticker,
-        start=start.strftime("%Y-%m-%d"),
-        end=end.strftime("%Y-%m-%d"),
-        progress=False,
-        auto_adjust=True,
-    )
+    df = fetch_ohlcv(ticker, start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
     if df.empty:
         log.warning("No recent data for %s.", ticker)
-        return pd.DataFrame()
-    df = df.reset_index()
-    # yfinance may return MultiIndex columns for single tickers — flatten
-    if isinstance(df.columns, pd.MultiIndex):
-        df.columns = [c[0] for c in df.columns]
-    df.columns = [str(c).lower() for c in df.columns]
-    df["ticker"] = ticker
     return df
 
 
@@ -118,19 +105,9 @@ def fetch_market_recent(lookback: int = _LOOKBACK_DAYS) -> pd.DataFrame:
 
     frames = []
     for symbol, name in symbols:
-        df = yf.download(
-            symbol,
-            start=start.strftime("%Y-%m-%d"),
-            end=end.strftime("%Y-%m-%d"),
-            progress=False,
-            auto_adjust=True,
-        )
+        df = fetch_ohlcv(symbol, start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
         if df.empty:
             continue
-        df = df.reset_index()
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = [c[0] for c in df.columns]
-        df.columns = [str(c).lower() for c in df.columns]
         df = df[["date", "close"]].rename(columns={"close": f"{name}_close"})
         frames.append(df)
 
@@ -496,6 +473,8 @@ def run(dry_run: bool = False) -> None:
         log.info("Dry-run mode: skipping signal file write.")
     else:
         write_signals(signals, CFG.output_dir, run_date)
+
+    write_status()
 
     # --- Feedback loop: evaluate past predictions ---
     try:

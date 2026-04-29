@@ -29,3 +29,8 @@ Thumbs.db
 # Docker
 docker-compose.override.yml
 Statements/
+
+# Trade-bot runtime data and caches
+trade/data/finnhub_cache/
+trade/data/datasource_status.json
+trade/data/*baseline*.csv

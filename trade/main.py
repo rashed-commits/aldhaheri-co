@@ -24,6 +24,9 @@ import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
+# Try repo-root .env first (canonical, used in production via Docker env_file),
+# then trade/.env as a fallback for legacy local setups.
+load_dotenv(Path(__file__).parent.parent / ".env")
 load_dotenv(Path(__file__).parent / ".env")
 
 from src.notifications import notify_error, notify_pipeline_complete, notify_pipeline_start, notify_weekly_summary

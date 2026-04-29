@@ -29,6 +29,7 @@ router = APIRouter(dependencies=[Depends(get_current_user)])
 
 OUTPUT_DIR = Path(os.environ.get("OUTPUT_DIR", "/app/output"))
 MODEL_DIR = Path(os.environ.get("MODEL_DIR", "/app/model/saved"))
+DATA_DIR = Path(os.environ.get("DATA_DIR", "/app/data"))
 
 
 def _read_json(path: Path) -> Any:
@@ -274,6 +275,29 @@ def portfolio_features():
     else:
         features = []
     return {"features": features}
+
+
+@router.get("/datasource")
+def portfolio_datasource():
+    """
+    Per-source data-provider status.
+
+    Reads the JSON snapshot written by the trade-bot pipeline at the end of
+    each run (data/datasource_status.json on the shared trade-data volume).
+    Surfaces last successful fetch timestamp, last error, success/error
+    counts, and the per-data-type routing map (Finnhub vs yfinance) so the
+    dashboard can show which provider is currently serving each leg.
+    """
+    status = _read_json(DATA_DIR / "datasource_status.json")
+    if status is None:
+        return {
+            "status": None,
+            "message": (
+                "No datasource_status.json yet — trade-bot has not completed "
+                "a run with the new data provider."
+            ),
+        }
+    return {"status": status}
 
 
 @router.get("/history")

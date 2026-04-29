@@ -131,96 +131,18 @@ def _add_target(df: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 def _fetch_quarterly_fundamentals(ticker: str) -> pd.DataFrame:
-    """Fetch quarterly financial data and return a DataFrame indexed by date.
+    """Fetch quarterly financial data via the unified data provider (Finnhub).
 
-    Each row represents one quarter's financials, forward-filled to every
-    trading day so the model only sees data that was publicly available at
-    each point in time (no look-ahead bias).
+    Each row represents one quarter's financials. Downstream `_add_fundamental_features`
+    forward-fills these to every trading day so the model only sees data
+    that was publicly available at each point in time.
     """
+    from src.data_provider import fetch_quarterly_financials
     try:
-        t = yf.Ticker(ticker)
-        inc = t.quarterly_financials
-        bs = t.quarterly_balance_sheet
-        cf = t.quarterly_cashflow
+        return fetch_quarterly_financials(ticker)
     except Exception as exc:
         log.warning("Could not fetch fundamentals for %s: %s", ticker, exc)
         return pd.DataFrame()
-
-    if inc is None or inc.empty:
-        return pd.DataFrame()
-
-    records = []
-    dates = sorted(inc.columns)
-
-    for d in dates:
-        row = {"date": pd.Timestamp(d)}
-
-        # Income statement
-        revenue = _safe_val(inc, "Total Revenue", d)
-        net_income = _safe_val(inc, "Net Income", d)
-        op_income = _safe_val(inc, "Operating Income", d)
-        gross_profit = _safe_val(inc, "Gross Profit", d)
-
-        row["f_profit_margin"] = net_income / revenue if (revenue and net_income is not None) else np.nan
-        row["f_gross_margin"] = gross_profit / revenue if (revenue and gross_profit is not None) else np.nan
-
-        # Revenue growth (QoQ)
-        idx = dates.index(d)
-        if idx > 0 and revenue is not None:
-            prev_rev = _safe_val(inc, "Total Revenue", dates[idx - 1])
-            row["f_revenue_growth_qoq"] = (revenue / prev_rev - 1) if prev_rev else np.nan
-        else:
-            row["f_revenue_growth_qoq"] = np.nan
-
-        # Revenue growth (YoY) — compare to 4 quarters ago
-        if idx >= 4 and revenue is not None:
-            yoy_rev = _safe_val(inc, "Total Revenue", dates[idx - 4])
-            row["f_revenue_growth_yoy"] = (revenue / yoy_rev - 1) if yoy_rev else np.nan
-        else:
-            row["f_revenue_growth_yoy"] = np.nan
-
-        # Balance sheet
-        if bs is not None and not bs.empty and d in bs.columns:
-            total_debt = _safe_val(bs, "Total Debt", d)
-            equity_val = _safe_val(bs, "Stockholders Equity", d)
-            total_assets = _safe_val(bs, "Total Assets", d)
-            cash = _safe_val(bs, "Cash And Cash Equivalents", d)
-            current_assets = _safe_val(bs, "Current Assets", d)
-            current_liab = _safe_val(bs, "Current Liabilities", d)
-
-            row["f_debt_to_equity"] = total_debt / equity_val if (equity_val and total_debt is not None) else np.nan
-            row["f_roe"] = net_income / equity_val if (equity_val and net_income is not None) else np.nan
-            row["f_cash_to_debt"] = cash / total_debt if (total_debt and cash is not None) else np.nan
-            row["f_debt_to_assets"] = total_debt / total_assets if (total_assets and total_debt is not None) else np.nan
-
-        # Cash flow
-        if cf is not None and not cf.empty and d in cf.columns:
-            op_cf = _safe_val(cf, "Operating Cash Flow", d)
-            capex = _safe_val(cf, "Capital Expenditure", d)
-            fcf = (op_cf + capex) if op_cf is not None and capex is not None else None
-            row["f_fcf_margin"] = fcf / revenue if (fcf is not None and revenue) else np.nan
-
-        records.append(row)
-
-    if not records:
-        return pd.DataFrame()
-
-    fund_df = pd.DataFrame(records)
-    fund_df["date"] = pd.to_datetime(fund_df["date"]).dt.tz_localize(None)
-    fund_df = fund_df.sort_values("date")
-    return fund_df
-
-
-def _safe_val(df: pd.DataFrame, row_name: str, col) -> float | None:
-    """Safely extract a value from a financials DataFrame."""
-    try:
-        if row_name in df.index:
-            val = df.loc[row_name, col]
-            if pd.notna(val):
-                return float(val)
-    except Exception:
-        pass
-    return None
 
 
 def _add_fundamental_features(

@@ -1,71 +1,46 @@
 """
 Phase 1: Data Ingestion
 =======================
-Downloads OHLCV data for each ticker in ``CFG.tickers`` via ``yfinance``
-and concatenates them into a single ``data/combined.csv``.
+Downloads OHLCV data for each ticker in ``CFG.tickers`` via the unified
+``data_provider`` (Finnhub primary, with dividend-adjusted prices) and
+concatenates them into a single ``data/combined.csv``.
 """
 
 from __future__ import annotations
 
 import pandas as pd
-import yfinance as yf
 
 from src.config import CFG
-from src.utils import ensure_dir, get_logger, load_csv, save_csv
+from src.data_provider import fetch_ohlcv, write_status
+from src.utils import ensure_dir, get_logger, save_csv
 
 log = get_logger("ingest")
 
 
 def fetch_ticker(ticker: str) -> pd.DataFrame:
-    """Download OHLCV history for *ticker* and attach a ``ticker`` column."""
+    """Download dividend-adjusted OHLCV history for *ticker*."""
     end = CFG.end_date or pd.Timestamp.today().strftime("%Y-%m-%d")
     log.info("Fetching %s (%s -> %s)", ticker, CFG.start_date, end)
-    df = yf.download(
-        ticker,
-        start=CFG.start_date,
-        end=end,
-        progress=False,
-        auto_adjust=True,
-    )
+    df = fetch_ohlcv(ticker, CFG.start_date, end)
     if df.empty:
         log.warning("No data returned for %s — skipping.", ticker)
-        return pd.DataFrame()
-    df = df.reset_index()
-    # yfinance may return MultiIndex columns for single tickers — flatten
-    if isinstance(df.columns, pd.MultiIndex):
-        df.columns = [c[0] for c in df.columns]
-    df.columns = [str(c).lower() for c in df.columns]
-    df["ticker"] = ticker
     return df
 
 
 def fetch_market_data() -> pd.DataFrame:
     """Download VIX, SPY, and sector ETFs as market regime indicators."""
-    frames = []
-    # Core market indicators
+    end = CFG.end_date or pd.Timestamp.today().strftime("%Y-%m-%d")
     symbols = [("^VIX", "vix"), ("SPY", "spy")]
-    # Sector ETFs for sector-relative strength
     for etf in CFG.sector_etfs:
         symbols.append((etf, etf.lower()))
 
+    frames = []
     for symbol, name in symbols:
-        end = CFG.end_date or pd.Timestamp.today().strftime("%Y-%m-%d")
         log.info("Fetching market data: %s (%s -> %s)", symbol, CFG.start_date, end)
-        df = yf.download(
-            symbol,
-            start=CFG.start_date,
-            end=end,
-            progress=False,
-            auto_adjust=True,
-        )
+        df = fetch_ohlcv(symbol, CFG.start_date, end)
         if df.empty:
             log.warning("No market data for %s.", symbol)
             continue
-        df = df.reset_index()
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = [c[0] for c in df.columns]
-        df.columns = [str(c).lower() for c in df.columns]
-        # Keep only date and close, renamed
         df = df[["date", "close"]].rename(columns={"close": f"{name}_close"})
         frames.append(df)
 
@@ -94,18 +69,16 @@ def run() -> None:
     save_csv(combined, out_path, index=False)
     log.info("Saved %s rows to %s", f"{len(combined):,}", out_path)
 
-    # Download market regime data (VIX + SPY)
     market = fetch_market_data()
     if not market.empty:
         market_path = CFG.data_dir / "market.csv"
         save_csv(market, market_path, index=False)
         log.info("Saved %d market rows to %s", len(market), market_path)
 
-    # Sentiment is now handled by a separate worker (sentiment_cron.py).
-    # Phase 1 no longer loads FinBERT — it just reads the existing
-    # sentiment.csv file if present.
     sentiment_path = CFG.data_dir / "sentiment.csv"
     if sentiment_path.exists():
         log.info("Sentiment file exists: %s", sentiment_path)
     else:
         log.info("No sentiment.csv found — sentiment features will be neutral.")
+
+    write_status()
