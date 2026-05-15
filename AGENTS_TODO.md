@@ -113,12 +113,17 @@ Personal AI agent office — a manager agent that dynamically spawns, manages, a
 - [ ] `components/CronRunHistory.jsx` — per-job run log with output
 
 ## Phase 13 — Docker, deploy, hub card
-- [ ] Add `agents.aldhaheri.co` to hub's `projects.js`
-- [ ] Add `nginx/agents.aldhaheri.co` site config (port 80 only — certbot adds SSL)
-- [ ] Add DNS A record `agents → 165.232.162.72`
-- [ ] On VPS: certbot, `docker compose up -d --build`, verify `/health`
-- [ ] Update root `CLAUDE.md` (service table, scheduled jobs, env vars)
-- [ ] Update root `README.md` (project description, services, endpoints)
+- [x] Add `nginx/agents.aldhaheri.co` site config (SSE-friendly: `proxy_buffering off`, `proxy_http_version 1.1`, 600s timeouts)
+- [x] Add DNS A record `agents → 165.232.162.72` (GoDaddy, propagated 2026-05-15)
+- [x] On VPS: nginx site installed + reloaded, certbot issued cert (expires 2026-08-13)
+- [x] Backend live: `docker compose up -d --build agents-backend`, `/health` returns 200
+- [x] Verified seeds: USER profile (id=1, version=1), manager agent (id=1, role=manager), initial memory (version=1)
+- [x] Verified FTS5: MATCH + snippet() work end-to-end against `agent_sessions_fts`
+- [x] Auth gates: unauthenticated `/api/auth/verify` and `/api/agents` return 401
+- [ ] Add `agents.aldhaheri.co` to hub's `projects.js` — deferred until frontend ships
+- [ ] Build + deploy `agents-frontend` container (Phase 8+ work)
+- [ ] Update root `CLAUDE.md` (service table, scheduled jobs, env vars) — after frontend ships
+- [ ] Update root `README.md` (project description, services, endpoints) — after frontend ships
 
 ## Phase 14 — Verification
 - [ ] Create manager + first sub-agent end-to-end
