@@ -1,7 +1,7 @@
 """
 Builds the per-agent system prompt in the documented order:
 
-    SOUL -> USER.md -> AGENT_MEMORY -> SKILL (if matched) -> TASK
+    SOUL -> USER.md -> AGENT_MEMORY -> OFFICE_ROSTER -> SKILL (if matched) -> TOOLS -> TASK
 
 HISTORY is the responsibility of the caller (passed via Anthropic messages=...),
 but conceptually it is the final layer of context the agent sees on each call.
@@ -71,6 +71,35 @@ async def get_latest_memory_md(session: AsyncSession, agent_id: int) -> str:
     return row.content_md if row else ""
 
 
+async def get_office_roster(session: AsyncSession, exclude_agent_id: int) -> str:
+    """Live listing of all other non-deleted agents in the office.
+
+    Injected into every system prompt so agents can answer "who's on the team"
+    accurately AND pick valid `agent_name` targets when emitting `delegate`
+    actions. Always fetched from the DB on each turn — never cached.
+    """
+    # Manager first, then workers by id.
+    manager_q = await session.execute(
+        select(Agent)
+        .where(Agent.deleted == False, Agent.role == "manager", Agent.id != exclude_agent_id)  # noqa: E712
+        .order_by(Agent.id)
+    )
+    worker_q = await session.execute(
+        select(Agent)
+        .where(Agent.deleted == False, Agent.role != "manager", Agent.id != exclude_agent_id)  # noqa: E712
+        .order_by(Agent.id)
+    )
+    rows = list(manager_q.scalars().all()) + list(worker_q.scalars().all())
+    if not rows:
+        return ""
+    lines = []
+    for a in rows:
+        tag = " (manager)" if a.role == "manager" else ""
+        spec = (a.specialization or "").strip() or "(no specialization set)"
+        lines.append(f"- **{a.name}**{tag} — {spec}")
+    return "\n".join(lines)
+
+
 def format_skill_block(skill: AgentSkill) -> str:
     parts = [f"# Skill: {skill.name}"]
     if skill.description:
@@ -101,6 +130,22 @@ async def assemble_system_prompt(
     memory_md = await get_latest_memory_md(session, agent.id)
     if memory_md.strip():
         sections.append("# Agent memory\n\n" + memory_md.strip())
+
+    roster = await get_office_roster(session, agent.id)
+    if roster:
+        sections.append(
+            "# Office roster\n\n"
+            "These are the OTHER agents currently active. This list is live — "
+            "rebuilt from the database on every turn, so it is always correct. "
+            "Use exactly these names when calling `delegate`. Do NOT invent or "
+            "reference agents that are not on this list.\n\n" + roster
+        )
+    else:
+        sections.append(
+            "# Office roster\n\n"
+            "You are currently the only active agent. Use `spawn_agent` to bring "
+            "specialists into the office before calling `delegate`."
+        )
 
     if skill is not None and not skill.deleted:
         sections.append(format_skill_block(skill))
