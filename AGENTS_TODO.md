@@ -77,25 +77,28 @@ Personal AI agent office — a manager agent that dynamically spawns, manages, a
 - [x] Route order: `/search` registered before `/{session_id}` so it isn't swallowed
 
 ## Phase 8 — Frontend scaffolding
-- [ ] `agents/frontend/` Vite + React 19 + Tailwind 4 init (mirror hub)
-- [ ] `Dockerfile` (node:20-alpine → nginx:alpine, port 3004)
-- [ ] `nginx.conf` SPA fallback
-- [ ] `vite.config.js` with `/api` proxy to `localhost:8004`
-- [ ] `src/services/api.js` fetch wrapper with `credentials: 'include'`, 401 → redirect
-- [ ] Theme constants matching CLAUDE.md (#0F0F1A, #1A1A2E, #7C3AED, etc.)
-- [ ] `ProtectedRoute` + `/api/auth/verify` flow
+- [x] `agents/frontend/` Vite + React 19 + Tailwind 4 + react-router-dom (mirrors hub deps exactly)
+- [x] `Dockerfile` (node:20-alpine → nginx:alpine, port 3004)
+- [x] `nginx.conf` SPA fallback
+- [x] `vite.config.js` — port 3004, `/api` proxy to `localhost:8004`
+- [x] `src/services/api.js` — `credentials: 'include'`, 401 → redirect to aldhaheri.co
+- [x] `src/services/{auth,agents,manager}.js` — typed API client wrappers
+- [x] `src/config/theme.js` — color constants matching CLAUDE.md, plus STATUS_COLORS map
+- [x] `src/components/ProtectedRoute.jsx` — verifies session before render
+- [x] `src/components/Header.jsx` — project nav (Trade dropped, Agents active)
+- [x] `eslint.config.js`, `.gitignore`, `index.html` matching hub
 
 ## Phase 9 — Office UI (isometric grid)
-- [ ] `pages/Office.jsx` — isometric grid container, manager pinned to center cell, sub-agent cells laid out around it (expanding ring as more spawn)
-- [ ] `components/IsoGrid.jsx` — CSS-grid + `transform: rotateX(60deg) rotateZ(-45deg)` board, depth-sorted cells
-- [ ] `components/DeskCell.jsx` — a single tile: floor texture, desk graphic, agent sprite, name label, ambient state effect
-- [ ] `components/AgentSprite.jsx` — sprite with 4 animation states (idle / thinking / working / done). Framer Motion variants for bobbing, typing puff, completion flash
-- [ ] Source/commission pixel-art sprites (or generate via simple SVG primitives initially — can swap art later)
-- [ ] `components/ManagerInput.jsx` — global input bar pinned bottom-center, calls `/api/manager/route`
-- [ ] `components/ActivityFeed.jsx` — slide-out drawer with live SSE feed of sessions/crons/proposals
-- [ ] `components/SpawnApprovalCard.jsx` — inline card rendered in the chat stream when manager emits `<action type="spawn">`; editable name/specialization/soul fields before accept
-- [ ] Cell spawn-in animation (fade + scale from grid origin) when a new agent is created
-- [ ] Status transition animations (idle → thinking → working → done) driven by SSE `agent_status` events
+- [x] `pages/Office.jsx` — header, isometric grid centered, manager input pinned bottom. Polls `/api/agents` every 3s for status changes.
+- [x] `components/IsoGrid.jsx` — 5x5 isometric grid via per-cell positioning (no CSS rotate; native iso math). Depth-sorted by `row + col` so back tiles render first.
+- [x] `components/DeskCell.jsx` — SVG cell: floor rhombus + bevel highlight, three-polygon desk with side faces, a tiny laptop hint, and a status halo when active.
+- [x] `components/AgentSprite.jsx` — procedural pixel-style SVG (rectangular body + head, eyes, shadow, optional manager crown). 4 status states (idle/thinking/working/done) + error fallback, with bob/pulse/typing-dot/spawn-in CSS animations.
+- [x] Procedural SVG sprites — using simple geometric primitives so art can be swapped without layout changes (per locked design).
+- [x] `components/ManagerInput.jsx` — bottom-pinned bar that POSTs `/api/manager/route`; shows route/spawn result inline (spawn approval card stub — full flow lands in Phase 10).
+- [~] `components/ActivityFeed.jsx` — deferred to Phase 10 (chat panel will own the live SSE consumer).
+- [~] `components/SpawnApprovalCard.jsx` — deferred to Phase 10 (chat stream needs to render it inline).
+- [x] Cell spawn-in animation (fade + scale) via the `spawn-in` keyframe in `index.css`.
+- [x] Status transition animations driven by polling for now; SSE in Phase 10.
 
 ## Phase 10 — Chat panel
 - [ ] `components/ChatPanel.jsx` — slides in from right when agent clicked
