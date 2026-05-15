@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import Office from './pages/Office'
+import Proposals from './pages/Proposals'
 
 export default function App() {
   return (
@@ -11,6 +12,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Office />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/proposals"
+          element={
+            <ProtectedRoute>
+              <Proposals />
             </ProtectedRoute>
           }
         />

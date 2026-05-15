@@ -111,10 +111,17 @@ Personal AI agent office — a manager agent that dynamically spawns, manages, a
 - [x] `slide-in` keyframe animation on the panel
 - [x] Office.jsx orchestrates: clicking a DeskCell opens chat for that agent; ManagerInput submission opens chat (route) or spawn approval (spawn)
 
-## Phase 11 — Memory + Skills panels
-- [ ] `components/MemoryPanel.jsx` — markdown view + edit, version history
-- [ ] `components/SkillsPanel.jsx` — list with frontmatter, edit, create, soft-delete
-- [ ] `components/ProposalQueue.jsx` — global view of all pending proposals
+## Phase 11 — Memory + Skills panels + global proposal queue
+- [x] Refactor `ChatPanel.jsx` into a chat-tab body (no outer wrapper or header)
+- [x] New `components/AgentPanel.jsx` — slide-in wrapper with header, sprite, tab strip (Chat | Memory | Skills); tabs hidden in spawn mode
+- [x] `components/MemoryPanel.jsx` — raw markdown textarea, save-creates-new-version, expandable version-history list with source + timestamp
+- [x] `components/SkillsPanel.jsx` — inline expanding form for add/edit, soft-delete with confirm, trigger keywords as chips, expandable instructions/frontmatter
+- [x] `services/memory.js` + `services/skills.js` — typed API wrappers
+- [x] `pages/Proposals.jsx` — global pending-proposal queue with per-row Accept/Reject; expandable proposed content + memory diff
+- [x] `components/AppNav.jsx` — in-app sub-nav (Office | Proposals) sits below the project nav with a pending-count badge
+- [x] Office.jsx polls `/api/proposals` so the badge stays current
+- [x] After spawn-accept, Office transitions the active conversation from `spawn` to `chat` mode so AgentPanel re-renders with tabs
+- [x] App.jsx registers the `/proposals` route behind `ProtectedRoute`
 
 ## Phase 12 — Cron manager UI
 - [ ] `pages/Crons.jsx` — list, create (natural language input), edit, enable/disable
