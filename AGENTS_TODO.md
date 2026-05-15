@@ -35,11 +35,12 @@ Personal AI agent office — a manager agent that dynamically spawns, manages, a
 - [x] `docker compose config` passes
 
 ## Phase 3 — Agent CRUD + manager routing
-- [ ] `routers/agents.py` — list, create, get, update soul, soft-delete
-- [ ] `routers/manager.py` — `/api/manager/route` (manager picks agent or proposes spawn)
-- [ ] `services/prompt_assembly.py` — builds SOUL → USER → MEMORY → SKILL → TASK → HISTORY
-- [ ] `services/anthropic_client.py` — shared Anthropic client + model constants
-- [ ] `services/skill_matcher.py` — Haiku-based skill picker per turn
+- [x] `routers/agents.py` — list, create, get-detail, update, soft-delete (manager protected)
+- [x] `routers/manager.py` — `/api/manager/route` Sonnet call returning route|spawn JSON
+- [x] `services/prompt_assembly.py` — SOUL → USER → MEMORY → SKILL → TASK composer + history parser
+- [x] `services/anthropic_client.py` — sync+async clients, MODEL_SONNET, MODEL_HAIKU constants
+- [x] `services/skill_matcher.py` — Haiku picks the single best skill (or none) per turn
+- [x] Wire `agents.router` and `manager.router` into `main.py`
 
 ## Phase 4 — Chat endpoint with full prompt assembly
 - [ ] `routers/chat.py` with SSE streaming via `client.messages.stream()`

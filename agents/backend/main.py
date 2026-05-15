@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.db import async_session, engine
 from backend.migrations import run_migrations_and_seeds
 from backend.models import Base
-from backend.routers import auth
+from backend.routers import agents, auth, manager
 
 load_dotenv()
 
@@ -46,6 +46,8 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(agents.router)
+app.include_router(manager.router)
 
 
 @app.get("/health")
