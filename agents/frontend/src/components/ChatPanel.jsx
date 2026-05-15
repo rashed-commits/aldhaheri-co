@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { COLORS } from '../config/theme'
 import AgentSprite from './AgentSprite'
 import SpawnApprovalCard from './SpawnApprovalCard'
@@ -327,6 +329,8 @@ export default function ChatPanel({ conversation, onClose, onAgentSpawned }) {
 
 function TurnRow({ turn }) {
   const isUser = turn.role === 'user'
+  const displayContent = isUser ? turn.content : stripActionBlocks(turn.content)
+
   return (
     <div style={{
       marginBottom: 14,
@@ -342,11 +346,20 @@ function TurnRow({ turn }) {
         color: COLORS.textPrimary,
         fontSize: 14,
         lineHeight: 1.55,
-        whiteSpace: 'pre-wrap',
+        whiteSpace: isUser ? 'pre-wrap' : 'normal',
         border: isUser ? 'none' : `1px solid ${COLORS.border}`,
       }}>
-        {turn.content}
-        {turn.streaming && <span style={{ opacity: 0.5 }}> ▍</span>}
+        {isUser ? (
+          <>
+            {displayContent}
+            {turn.streaming && <span style={{ opacity: 0.5 }}> ▍</span>}
+          </>
+        ) : (
+          <div className="markdown-body">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayContent}</ReactMarkdown>
+            {turn.streaming && <span style={{ opacity: 0.5 }}>▍</span>}
+          </div>
+        )}
       </div>
       {turn.actions?.length > 0 && (
         <div style={{ width: '100%', marginTop: 8 }}>
@@ -357,6 +370,19 @@ function TurnRow({ turn }) {
       )}
     </div>
   )
+}
+
+/**
+ * Strip `<action>...</action>` JSON blocks from the visible bubble text.
+ * The parsed actions still render as cards below the turn; the block itself
+ * was only ever a transport mechanism. Also strips a trailing partial open
+ * tag during streaming so the user doesn't see a flicker of `<action>`.
+ */
+function stripActionBlocks(text) {
+  let cleaned = text.replace(/<action>[\s\S]*?<\/action>/g, '')
+  const partial = cleaned.lastIndexOf('<action>')
+  if (partial !== -1) cleaned = cleaned.slice(0, partial)
+  return cleaned
 }
 
 function ActionPreview({ action }) {
