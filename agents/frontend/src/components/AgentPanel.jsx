@@ -10,7 +10,7 @@ import SkillsPanel from './SkillsPanel'
  * Renders Chat | Memory | Skills tab bodies. Tabs only appear once an agent
  * exists (so spawn mode is chat-only until accepted).
  */
-export default function AgentPanel({ conversation, onClose, onAgentSpawned }) {
+export default function AgentPanel({ conversation, onClose, onAgentSpawned, onFireRequest }) {
   const agent = conversation?.agent || null
   const isSpawnMode = conversation?.mode === 'spawn' && !conversation?.agentId
   const [tab, setTab] = useState('chat')
@@ -60,6 +60,26 @@ export default function AgentPanel({ conversation, onClose, onAgentSpawned }) {
             </div>
           )}
         </div>
+        {!isSpawnMode && agent && agent.role !== 'manager' && (
+          <button
+            onClick={() => onFireRequest?.(agent)}
+            title="Fire this agent"
+            style={{
+              background: 'transparent',
+              border: `1px solid ${COLORS.border}`,
+              color: COLORS.danger,
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+              padding: '5px 10px',
+              borderRadius: 6,
+            }}
+          >
+            Fire
+          </button>
+        )}
         <button
           onClick={onClose}
           style={{

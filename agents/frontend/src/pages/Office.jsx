@@ -4,7 +4,8 @@ import AppNav from '../components/AppNav'
 import IsoGrid from '../components/IsoGrid'
 import ManagerInput from '../components/ManagerInput'
 import AgentPanel from '../components/AgentPanel'
-import { listAgents } from '../services/agents'
+import FireApprovalCard from '../components/FireApprovalCard'
+import { deleteAgent, listAgents } from '../services/agents'
 import { routeToAgent } from '../services/manager'
 import { listProposals } from '../services/proposals'
 import { COLORS } from '../config/theme'
@@ -18,6 +19,9 @@ export default function Office() {
   const [routePending, setRoutePending] = useState(false)
   const [conversation, setConversation] = useState(null)
   const [pendingProposalsCount, setPendingProposalsCount] = useState(0)
+  const [pendingFire, setPendingFire] = useState(null) // { agent, rationale? }
+  const [firePending, setFirePending] = useState(false)
+  const [fireError, setFireError] = useState(null)
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -85,8 +89,6 @@ export default function Office() {
 
   const closeChat = useCallback(() => setConversation(null), [])
 
-  // After spawn-accept, both add to agents list AND transition the active
-  // conversation into chat mode so AgentPanel shows tabs and the right header.
   const handleAgentSpawned = useCallback((newAgent) => {
     setAgents((prev) => [...prev, newAgent])
     setConversation((prev) =>
@@ -100,6 +102,37 @@ export default function Office() {
         : prev,
     )
   }, [])
+
+  const openFireApproval = useCallback((agent, rationale = '') => {
+    if (!agent || agent.role === 'manager') return
+    setFireError(null)
+    setPendingFire({ agent, rationale })
+  }, [])
+
+  const cancelFire = useCallback(() => {
+    if (firePending) return
+    setPendingFire(null)
+    setFireError(null)
+  }, [firePending])
+
+  const confirmFire = useCallback(async () => {
+    if (!pendingFire?.agent) return
+    setFirePending(true)
+    setFireError(null)
+    try {
+      await deleteAgent(pendingFire.agent.id)
+      setAgents((prev) => prev.filter((a) => a.id !== pendingFire.agent.id))
+      // Close the chat panel if the fired agent was open
+      setConversation((prev) =>
+        prev?.agentId === pendingFire.agent.id ? null : prev,
+      )
+      setPendingFire(null)
+    } catch (err) {
+      setFireError(err.message || 'Fire failed')
+    } finally {
+      setFirePending(false)
+    }
+  }, [pendingFire])
 
   const handleRoute = useCallback(
     async (message) => {
@@ -116,6 +149,13 @@ export default function Office() {
           }
         } else if (result.action === 'spawn') {
           openSpawnApproval(result.proposed_agent, result.rationale, message)
+        } else if (result.action === 'fire') {
+          const target = agents.find((a) => a.id === result.agent_id)
+          if (target) {
+            openFireApproval(target, result.rationale || '')
+          } else {
+            setRouteError(`Manager proposed firing unknown agent #${result.agent_id}`)
+          }
         }
         fetchAgents()
       } catch (err) {
@@ -124,7 +164,7 @@ export default function Office() {
         setRoutePending(false)
       }
     },
-    [agents, fetchAgents, openChatWithAgent, openSpawnApproval],
+    [agents, fetchAgents, openChatWithAgent, openSpawnApproval, openFireApproval],
   )
 
   return (
@@ -198,6 +238,18 @@ export default function Office() {
           conversation={conversation}
           onClose={closeChat}
           onAgentSpawned={handleAgentSpawned}
+          onFireRequest={(a) => openFireApproval(a)}
+        />
+      )}
+
+      {pendingFire && (
+        <FireApprovalCard
+          agent={pendingFire.agent}
+          rationale={pendingFire.rationale}
+          onAccept={confirmFire}
+          onCancel={cancelFire}
+          isPending={firePending}
+          error={fireError}
         />
       )}
     </div>

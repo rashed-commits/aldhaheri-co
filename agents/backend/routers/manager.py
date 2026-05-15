@@ -1,9 +1,13 @@
 """
 Manager routing. Sonnet-powered.
 
-Given an incoming user message, the manager either ROUTEs to an existing
-sub-agent or PROPOSEs spawning a new specialist. The frontend renders the
-result as an inline approval card; the user gates every spawn.
+Given an incoming user message, the manager picks one of three actions:
+  - route: send the message to an existing sub-agent
+  - spawn: propose creating a new specialist
+  - fire:  propose dismissing an existing sub-agent (never the manager)
+
+The frontend renders spawn/fire results as approval cards; the user gates
+every mutation.
 """
 
 import json
@@ -38,17 +42,19 @@ You are the Manager of a small office of specialist agents owned by a single use
 {agents_block}
 
 # Your job
-Decide what to do with the user's incoming message. You have exactly two options:
+Decide what to do with the user's incoming message. You have exactly three options:
 
 1. ROUTE the message to one of the existing sub-agents above (by id), with a short framing sentence.
 2. PROPOSE spawning a new specialist if no existing agent fits. Propose a NAME, a one-line SPECIALIZATION, and a short SOUL paragraph.
+3. PROPOSE firing one of your sub-agents if the user is asking you to dismiss it. You can NEVER fire yourself (the manager). Only use `fire` when the user is clearly asking to remove an existing agent — never as a way to handle a substantive task.
 
 You NEVER do the substantive work yourself.
 
-Reply with ONLY a JSON object — no markdown, no prose, no code fences — in one of two shapes:
+Reply with ONLY a JSON object — no markdown, no prose, no code fences — in one of three shapes:
 
 Route: {{"action": "route", "agent_id": <int>, "framing": "<one short sentence>"}}
 Spawn: {{"action": "spawn", "proposed_agent": {{"name": "<name>", "specialization": "<one-line>", "soul": "<short paragraph>"}}, "rationale": "<one short sentence>"}}
+Fire:  {{"action": "fire", "agent_id": <int>, "rationale": "<one short sentence>"}}
 """
 
 
@@ -57,7 +63,7 @@ class RouteRequest(BaseModel):
 
 
 class RouteResponse(BaseModel):
-    action: str  # "route" or "spawn"
+    action: str  # "route" | "spawn" | "fire"
     agent_id: Optional[int] = None
     framing: Optional[str] = None
     proposed_agent: Optional[dict] = None
@@ -146,6 +152,23 @@ async def route(
         return RouteResponse(
             action="spawn",
             proposed_agent=parsed.get("proposed_agent"),
+            rationale=parsed.get("rationale", ""),
+            raw_manager_reply=raw_reply,
+        )
+    if action == "fire":
+        target_id = parsed.get("agent_id")
+        target = next((a for a in sub_agents if a.id == target_id), None)
+        if target is None:
+            # The model picked an id that isn't a current sub-agent (could be
+            # the manager itself, or a stale id). Fail safe rather than
+            # surfacing a misleading approval card.
+            raise HTTPException(
+                status_code=502,
+                detail=f"Manager proposed firing agent #{target_id}, which is not a current sub-agent",
+            )
+        return RouteResponse(
+            action="fire",
+            agent_id=target_id,
             rationale=parsed.get("rationale", ""),
             raw_manager_reply=raw_reply,
         )
