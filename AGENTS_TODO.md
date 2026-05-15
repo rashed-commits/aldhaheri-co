@@ -123,10 +123,11 @@ Personal AI agent office — a manager agent that dynamically spawns, manages, a
 - [x] Verified seeds: USER profile (id=1, version=1), manager agent (id=1, role=manager), initial memory (version=1)
 - [x] Verified FTS5: MATCH + snippet() work end-to-end against `agent_sessions_fts`
 - [x] Auth gates: unauthenticated `/api/auth/verify` and `/api/agents` return 401
-- [ ] Add `agents.aldhaheri.co` to hub's `projects.js` — deferred until frontend ships
-- [ ] Build + deploy `agents-frontend` container (Phase 8+ work)
-- [ ] Update root `CLAUDE.md` (service table, scheduled jobs, env vars) — after frontend ships
-- [ ] Update root `README.md` (project description, services, endpoints) — after frontend ships
+- [x] Build + deploy `agents-frontend` container — live at https://agents.aldhaheri.co
+- [x] nginx site updated to dual-target: `/` → frontend (3004), `/api/` + `/health` → backend (8004). SSL re-attached via `certbot --reinstall`.
+- [ ] Add `agents.aldhaheri.co` to hub's `projects.js` (waiting on Phase 10 to round out the UX before advertising)
+- [ ] Update root `CLAUDE.md` (service table, scheduled jobs, env vars) — after Phase 10
+- [ ] Update root `README.md` (project description, services, endpoints) — after Phase 10
 
 ## Phase 14 — Verification
 - [ ] Create manager + first sub-agent end-to-end
