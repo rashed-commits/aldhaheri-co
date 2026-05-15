@@ -19,18 +19,20 @@ Personal AI agent office — a manager agent that dynamically spawns, manages, a
 - [x] Create `agents/backend/db.py` (async engine, session, `get_db`)
 - [x] Create `agents/backend/models.py` (SQLAlchemy `Base` + Pydantic schemas for all 9 tables — added `proposals` for the self-improving loop)
 - [x] Create `agents/backend/migrations.py` with FTS5 CREATE statement + seed functions (called from lifespan in Phase 2)
-- [~] Wire `Base.metadata.create_all` into FastAPI lifespan — pending Phase 2 main.py
-- [~] Add FTS5 virtual table for `agent_sessions` — CREATE statement ready, lifespan wiring pending Phase 2
-- [~] Seed `user_profile` (single row) on first startup — seed function ready, pending Phase 2
-- [~] Seed manager agent (singleton, non-deletable by route layer) on first startup — seed function ready, pending Phase 2
+- [x] Wire `Base.metadata.create_all` into FastAPI lifespan
+- [x] Add FTS5 virtual table for `agent_sessions` (called from lifespan)
+- [x] Seed `user_profile` (single row) on first startup
+- [x] Seed manager agent (singleton; deletion guard pending in Phase 3 route layer) on first startup
 
 ## Phase 2 — Auth + scaffolding
-- [ ] `agents/backend/main.py` with CORS, lifespan, health, router includes
-- [ ] `agents/backend/routers/auth.py` — `get_current_user()` reusing JWT cookie pattern
-- [ ] `agents/backend/Dockerfile` (python:3.11-slim, port 8004)
-- [ ] `agents/backend/requirements.txt` (fastapi, uvicorn, aiosqlite, sqlalchemy, apscheduler, anthropic, httpx, python-jose, python-dotenv, pydantic)
-- [ ] `agents/docker-compose.yml` (frontend + backend services, agents-data volume, env_file: ../.env)
-- [ ] Add `include:` entry in root `docker-compose.yml`
+- [x] `agents/backend/main.py` with CORS, lifespan, health, router includes
+- [x] `agents/backend/routers/auth.py` — `get_current_user()` reusing JWT cookie pattern
+- [x] `agents/backend/Dockerfile` (python:3.11-slim, port 8004, finance-style `COPY . ./backend/` layout)
+- [x] `agents/backend/requirements.txt` (pinned to match finance versions where shared)
+- [x] `agents/docker-compose.yml` — **backend service only for now**; frontend service added in Phase 8
+- [x] Add `include:` entry in root `docker-compose.yml`
+- [x] Add Agents section to `.env.example` (notes reused vars)
+- [x] `docker compose config` passes
 
 ## Phase 3 — Agent CRUD + manager routing
 - [ ] `routers/agents.py` — list, create, get, update soul, soft-delete

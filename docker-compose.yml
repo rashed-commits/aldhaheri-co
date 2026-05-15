@@ -3,6 +3,7 @@ include:
   - path: ./market/docker-compose.yml
   - path: ./realestate/docker-compose.yml
   - path: ./trade/docker-compose.yml
+  - path: ./agents/docker-compose.yml
 
 services:
   hub-frontend:

@@ -1,0 +1,29 @@
+services:
+  agents-backend:
+    build: ./backend
+    container_name: agents-backend
+    ports:
+      - "8004:8004"
+    volumes:
+      - agents-data:/data
+    env_file:
+      - ../.env
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8004/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  agents-data:
