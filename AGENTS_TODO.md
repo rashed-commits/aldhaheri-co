@@ -101,10 +101,15 @@ Personal AI agent office — a manager agent that dynamically spawns, manages, a
 - [x] Status transition animations driven by polling for now; SSE in Phase 10.
 
 ## Phase 10 — Chat panel
-- [ ] `components/ChatPanel.jsx` — slides in from right when agent clicked
-- [ ] SSE consumer (EventSource or fetch+ReadableStream)
-- [ ] Action approval UI (mirrors finance chatbot pattern)
-- [ ] Inline proposal cards (memory/skill) post-response
+- [x] `components/ChatPanel.jsx` — right-side slide-in with header, scrolling transcript, streaming bubble, input bar
+- [x] SSE consumer via fetch + ReadableStream in `services/chat.js` (async generator yielding parsed events)
+- [x] `components/SpawnApprovalCard.jsx` — inline editable card for manager-proposed agents (name / specialization / soul)
+- [x] Spawn flow: manager returns `spawn` → panel opens in spawn mode → on Accept, `POST /api/agents` then immediately fires the original message
+- [x] Action preview cards rendered inline under each assistant turn for any `<action>{...}</action>` blocks the model emits
+- [x] Inline proposal cards: after each turn ends, polls `/api/proposals` and surfaces pending memory/skill proposals with Accept/Reject
+- [x] `services/proposals.js` — list / accept / reject wrappers
+- [x] `slide-in` keyframe animation on the panel
+- [x] Office.jsx orchestrates: clicking a DeskCell opens chat for that agent; ManagerInput submission opens chat (route) or spawn approval (spawn)
 
 ## Phase 11 — Memory + Skills panels
 - [ ] `components/MemoryPanel.jsx` — markdown view + edit, version history

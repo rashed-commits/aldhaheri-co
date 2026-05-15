@@ -3,11 +3,10 @@ import { COLORS } from '../config/theme'
 
 /**
  * Global input bar pinned bottom-center. Submits to the parent which calls
- * /api/manager/route. The response (route|spawn) is surfaced as a small
- * informational card just above the input — full chat/spawn approval lands
- * in Phase 10.
+ * /api/manager/route. Parent opens the chat panel (route) or the spawn
+ * approval card (spawn) — this component just collects input.
  */
-export default function ManagerInput({ onSubmit, isPending, lastResult, error }) {
+export default function ManagerInput({ onSubmit, isPending, error }) {
   const [text, setText] = useState('')
 
   const handleSubmit = (e) => {
@@ -34,35 +33,6 @@ export default function ManagerInput({ onSubmit, isPending, lastResult, error })
             }}
           >
             {error}
-          </div>
-        )}
-
-        {lastResult && (
-          <div
-            style={{
-              marginBottom: 10,
-              padding: '12px 14px',
-              borderRadius: 10,
-              backgroundColor: COLORS.bgCard,
-              border: `1px solid ${COLORS.border}`,
-              fontSize: 13,
-              color: COLORS.textMuted,
-            }}
-          >
-            {lastResult.action === 'route' && (
-              <span>
-                <span style={{ color: COLORS.accentLight, fontWeight: 600 }}>Manager routed</span> to agent #{lastResult.agent_id} — {lastResult.framing}
-              </span>
-            )}
-            {lastResult.action === 'spawn' && (
-              <span>
-                <span style={{ color: COLORS.warning, fontWeight: 600 }}>Manager proposes spawning</span>{' '}
-                <span style={{ color: COLORS.textPrimary }}>{lastResult.proposed_agent?.name}</span> — {lastResult.rationale}
-                <div style={{ marginTop: 6, fontSize: 12, color: COLORS.textDim }}>
-                  (Spawn approval card lands in Phase 10. For now the proposal is logged.)
-                </div>
-              </span>
-            )}
           </div>
         )}
 
