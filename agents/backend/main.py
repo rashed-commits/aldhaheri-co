@@ -8,7 +8,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.db import async_session, engine
 from backend.migrations import run_migrations_and_seeds
 from backend.models import Base
-from backend.routers import agents, auth, chat, manager
+from backend.routers import (
+    agents,
+    auth,
+    chat,
+    manager,
+    memory,
+    proposals,
+    skills,
+    user_profile,
+)
 
 load_dotenv()
 
@@ -49,6 +58,10 @@ app.include_router(auth.router)
 app.include_router(agents.router)
 app.include_router(manager.router)
 app.include_router(chat.router)
+app.include_router(memory.router)
+app.include_router(skills.router)
+app.include_router(proposals.router)
+app.include_router(user_profile.router)
 
 
 @app.get("/health")

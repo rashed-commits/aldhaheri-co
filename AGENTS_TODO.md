@@ -54,10 +54,14 @@ Personal AI agent office — a manager agent that dynamically spawns, manages, a
 - [~] Action executor: spawn_agent / create_task / schedule_cron — frontend-driven; execute endpoints land alongside crons (Phase 6) and via `POST /api/agents` (existing). Memory/skill proposals come from reflection (Phase 5).
 
 ## Phase 5 — Self-improving loop
-- [ ] `services/reflection.py` — post-response Haiku call → memory & skill proposals
-- [ ] `routers/proposals.py` — list pending, accept, reject
-- [ ] Memory append-only versioning (each accept creates new `agent_memory` row)
-- [ ] Skill creation flow (accept proposal → write `agent_skills` row)
+- [x] `services/reflection.py` — Haiku call → task_type classification + optional memory + skill proposals; persists a Task row + Proposals
+- [x] `routers/proposals.py` — list (filterable by status/agent/kind), accept, reject
+- [x] Memory append-only versioning enforced via `MAX(version) + 1` on accept
+- [x] Skill creation flow: accept → new agent_skills row with `source=proposal_accepted` + `source_proposal_id`
+- [x] 2nd-occurrence gate on skill proposals (task_type must already be in recent history)
+- [x] `routers/memory.py` — get latest, list versions, manual edit (creates new version)
+- [x] `routers/skills.py` — CRUD with slug-collision protection
+- [x] `routers/user_profile.py` — get + update singleton USER.md
 
 ## Phase 6 — Cron engine
 - [ ] `services/scheduler.py` — APScheduler init in lifespan, restore jobs from DB on boot
