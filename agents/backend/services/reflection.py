@@ -12,12 +12,13 @@ Per locked design:
 
 import json
 import logging
+from datetime import datetime, timezone
 
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.db import async_session
-from backend.models import Agent, AgentMemory, AgentSkill, Proposal, Task
+from backend.models import Agent, AgentMemory, AgentSkill, Proposal, Task, UserProfile
 from backend.services.anthropic_client import MODEL_HAIKU, async_client
 from backend.services.json_utils import parse_model_json
 
@@ -147,15 +148,41 @@ async def queue_reflection(
 
             mem_prop = parsed.get("memory_proposal")
             if mem_prop and isinstance(mem_prop, dict) and mem_prop.get("proposed_md"):
-                db.add(Proposal(
+                # Look up the auto-accept flag — when on, memory proposals
+                # are applied immediately and the proposal row is marked
+                # accepted in the same transaction. Skill proposals are
+                # always user-gated regardless.
+                up_res = await db.execute(select(UserProfile).where(UserProfile.id == 1))
+                user_prof = up_res.scalar_one_or_none()
+                auto_accept = bool(user_prof and user_prof.auto_accept_memory)
+
+                proposal = Proposal(
                     agent_id=agent_id,
                     session_id=session_id,
                     kind="memory_update",
                     current_snapshot=ctx["current_memory_md"],
                     proposed_snapshot=mem_prop["proposed_md"],
                     rationale=mem_prop.get("rationale", ""),
-                    status="pending",
-                ))
+                    status="accepted" if auto_accept else "pending",
+                    resolved_at=datetime.now(timezone.utc) if auto_accept else None,
+                )
+                db.add(proposal)
+
+                if auto_accept:
+                    await db.flush()  # populate proposal.id for the FK
+                    latest_v = await db.execute(
+                        select(func.max(AgentMemory.version)).where(
+                            AgentMemory.agent_id == agent_id
+                        )
+                    )
+                    next_version = (latest_v.scalar() or 0) + 1
+                    db.add(AgentMemory(
+                        agent_id=agent_id,
+                        content_md=mem_prop["proposed_md"],
+                        version=next_version,
+                        source="proposal_accepted",
+                        source_proposal_id=proposal.id,
+                    ))
 
             skill_prop = parsed.get("skill_proposal")
             if skill_prop and isinstance(skill_prop, dict) and skill_prop.get("name"):

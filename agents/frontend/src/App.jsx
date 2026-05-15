@@ -3,6 +3,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import Office from './pages/Office'
 import Proposals from './pages/Proposals'
 import Crons from './pages/Crons'
+import Settings from './pages/Settings'
 
 export default function App() {
   return (
@@ -29,6 +30,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Crons />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
             </ProtectedRoute>
           }
         />

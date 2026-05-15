@@ -23,7 +23,7 @@ class Base(DeclarativeBase):
     pass
 
 
-# ── 1. user_profile ─ singleton USER.md ───────────────────────────────────────
+# ── 1. user_profile ─ singleton USER.md + global settings ─────────────────────
 class UserProfile(Base):
     __tablename__ = "user_profile"
 
@@ -31,6 +31,9 @@ class UserProfile(Base):
     content_md = Column(Text, nullable=False, default="")
     version = Column(Integer, nullable=False, default=1)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+    # When true, reflection-proposed memory updates are applied immediately
+    # without surfacing a proposal card. Skill proposals stay gated regardless.
+    auto_accept_memory = Column(Boolean, nullable=False, default=False)
 
 
 # ── 2. agents ─────────────────────────────────────────────────────────────────
@@ -181,11 +184,13 @@ class UserProfileOut(BaseModel):
     content_md: str
     version: int
     updated_at: datetime
+    auto_accept_memory: bool = False
     model_config = {"from_attributes": True}
 
 
 class UserProfileUpdate(BaseModel):
-    content_md: str
+    content_md: Optional[str] = None
+    auto_accept_memory: Optional[bool] = None
 
 
 class AgentOut(BaseModel):

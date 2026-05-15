@@ -28,6 +28,23 @@ async def init_fts5(session: AsyncSession) -> None:
     await session.commit()
 
 
+# Idempotent column additions for existing databases. SQLAlchemy's
+# create_all doesn't ALTER existing tables, so each new column needs an
+# explicit ADD COLUMN guarded against the "duplicate column" error.
+_ADD_COLUMN_STATEMENTS = [
+    "ALTER TABLE user_profile ADD COLUMN auto_accept_memory INTEGER NOT NULL DEFAULT 0",
+]
+
+
+async def apply_column_migrations(session: AsyncSession) -> None:
+    for stmt in _ADD_COLUMN_STATEMENTS:
+        try:
+            await session.execute(text(stmt))
+            await session.commit()
+        except Exception:  # noqa: BLE001 — assume "duplicate column"; safe to ignore
+            await session.rollback()
+
+
 DEFAULT_USER_MD = """\
 # USER.md
 
@@ -101,5 +118,6 @@ async def seed_manager_agent(session: AsyncSession) -> None:
 async def run_migrations_and_seeds(session: AsyncSession) -> None:
     """Called from the FastAPI lifespan after Base.metadata.create_all."""
     await init_fts5(session)
+    await apply_column_migrations(session)
     await seed_user_profile(session)
     await seed_manager_agent(session)
