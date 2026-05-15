@@ -124,8 +124,12 @@ Personal AI agent office — a manager agent that dynamically spawns, manages, a
 - [x] App.jsx registers the `/proposals` route behind `ProtectedRoute`
 
 ## Phase 12 — Cron manager UI
-- [ ] `pages/Crons.jsx` — list, create (natural language input), edit, enable/disable
-- [ ] `components/CronRunHistory.jsx` — per-job run log with output
+- [x] `services/crons.js` — list, parse-NL, create, patch, delete, run-now, list-runs
+- [x] `components/CronForm.jsx` — two-step parse-then-save flow. Haiku parses the NL on demand, displays the resulting cron expression + one-line explanation, then Save persists. On edit, NL re-parses server-side if changed. Includes agent dropdown, optional forced-skill dropdown (skills filtered to selected agent), output-target radio (UI / Telegram / Both).
+- [x] `components/CronRunHistory.jsx` — last 50 runs per cron with status chip, timing, duration, error, expandable output excerpt.
+- [x] `pages/Crons.jsx` — list of cron cards (name, enabled chip, target agent, NL + parsed expr, prompt preview, next/last run). Per-card buttons: View runs (toggles inline history), Run now, Pause/Resume, Edit, Delete. Polls `/api/crons` every 5s so next_run_at refreshes.
+- [x] `AppNav.jsx` — add Crons tab.
+- [x] `App.jsx` — register `/crons` route behind `ProtectedRoute`.
 
 ## Phase 13 — Docker, deploy, hub card
 - [x] Add `nginx/agents.aldhaheri.co` site config (SSE-friendly: `proxy_buffering off`, `proxy_http_version 1.1`, 600s timeouts)

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import Office from './pages/Office'
 import Proposals from './pages/Proposals'
+import Crons from './pages/Crons'
 
 export default function App() {
   return (
@@ -20,6 +21,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Proposals />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/crons"
+          element={
+            <ProtectedRoute>
+              <Crons />
             </ProtectedRoute>
           }
         />
