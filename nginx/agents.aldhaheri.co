@@ -1,0 +1,26 @@
+server {
+    listen 80;
+    server_name agents.aldhaheri.co;
+
+    # All routes proxy to the agents backend on port 8004.
+    # SSE-friendly: disable buffering and extend timeouts so the
+    # /api/agents/{id}/chat stream isn't broken by nginx.
+    location / {
+        proxy_pass http://localhost:8004;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
+    }
+
+    location /health {
+        proxy_pass http://localhost:8004;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
