@@ -12,7 +12,8 @@ Per turn:
 SSE event types emitted:
   - session:  {session_id, agent_id, skill_id}
   - chunk:    {text}                    — incremental Claude output
-  - actions:  {actions: [...]}          — parsed <action> blocks (if any)
+  - actions:  {actions: [...]}          — parsed <action> blocks with `_result`
+                                          fields populated by action_executor
   - end:      {session_id, input_tokens, output_tokens}
   - error:    {message}                 — only on failure
 """
@@ -33,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.db import async_session, get_db
 from backend.models import Agent, AgentSession
 from backend.routers.auth import get_current_user
+from backend.services.action_executor import execute_action
 from backend.services.anthropic_client import MODEL_SONNET, async_client
 from backend.services.prompt_assembly import (
     assemble_system_prompt,
@@ -163,6 +165,17 @@ async def chat(
         full_text = "".join(assistant_chunks)
         cleaned_text, actions = _parse_actions(full_text)
 
+        # Auto-execute each action server-side. Results are bundled back
+        # into the SSE `actions` event so the UI can render the outcome.
+        enriched_actions = []
+        for action in actions:
+            result = await execute_action(
+                action,
+                actor_agent_id=agent_id,
+                session_id=session_id_final,
+            )
+            enriched_actions.append({**action, "_result": result})
+
         async with async_session() as commit_db:
             user_turn_index = await append_turn_to_session(
                 commit_db, session_id_final, role="user", content=body.message
@@ -194,7 +207,7 @@ async def chat(
 
             await commit_db.commit()
 
-        yield _sse("actions", {"actions": actions})
+        yield _sse("actions", {"actions": enriched_actions})
         yield _sse("end", {
             "session_id": session_id_final,
             "input_tokens": input_tokens,
