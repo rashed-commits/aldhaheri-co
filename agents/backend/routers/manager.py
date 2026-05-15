@@ -10,9 +10,7 @@ The frontend renders spawn/fire results as approval cards; the user gates
 every mutation.
 """
 
-import json
 import logging
-import re
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -24,6 +22,7 @@ from backend.db import get_db
 from backend.models import Agent, UserProfile
 from backend.routers.auth import get_current_user
 from backend.services.anthropic_client import MODEL_SONNET, async_client
+from backend.services.json_utils import parse_model_json
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/manager", tags=["manager"])
@@ -80,22 +79,6 @@ def _build_agents_block(agents: list[Agent]) -> str:
     )
 
 
-def _extract_json(text: str) -> Optional[dict]:
-    """Best-effort JSON extraction in case the model wrapped output in prose."""
-    text = text.strip()
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        pass
-    match = re.search(r"\{.*\}", text, flags=re.DOTALL)
-    if not match:
-        return None
-    try:
-        return json.loads(match.group(0))
-    except json.JSONDecodeError:
-        return None
-
-
 @router.post("/route", response_model=RouteResponse)
 async def route(
     body: RouteRequest,
@@ -136,7 +119,7 @@ async def route(
         raise HTTPException(status_code=502, detail="Manager call failed")
 
     raw_reply = response.content[0].text
-    parsed = _extract_json(raw_reply)
+    parsed = parse_model_json(raw_reply)
     if parsed is None:
         raise HTTPException(status_code=502, detail="Manager returned unparseable response")
 
