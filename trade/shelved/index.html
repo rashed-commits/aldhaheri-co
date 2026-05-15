@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trade Bot — Discontinued</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0F0F1A;
+            --bg-card: #1A1A2E;
+            --border: #2D2D4E;
+            --text-primary: #F0EEE9;
+            --text-secondary: #8A8780;
+            --text-muted: #5A5856;
+            --accent: #7C3AED;
+            --accent-dim: rgba(124,58,237,0.15);
+            --font-sans: 'DM Sans', system-ui, sans-serif;
+            --font-display: 'Outfit', system-ui, sans-serif;
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .project-nav {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            padding: 0 32px;
+            height: 56px;
+            background: rgba(15,15,26,0.95);
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+            backdrop-filter: blur(12px);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+        }
+        .project-nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .project-nav a:hover, .project-nav a.active { color: var(--text-primary); }
+        .nav-home {
+            font-family: var(--font-display);
+            font-weight: 600;
+            color: var(--text-primary) !important;
+            margin-right: 8px;
+        }
+
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 56px 24px 48px;
+            text-align: center;
+        }
+
+        .bot-icon {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 32px;
+            opacity: 0.4;
+        }
+
+        h1 {
+            font-family: var(--font-display);
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, var(--accent), var(--text-primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 520px;
+            line-height: 1.6;
+            margin-bottom: 40px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: var(--accent-dim);
+            border: 1px solid rgba(124,58,237,0.25);
+            border-radius: 24px;
+            font-size: 0.85rem;
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent);
+        }
+
+        .back-link {
+            margin-top: 48px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .back-link:hover { color: var(--text-secondary); }
+    </style>
+</head>
+<body>
+
+    <nav class="project-nav">
+        <a href="https://aldhaheri.co/dashboard" class="nav-home">aldhaheri.co</a>
+        <a href="https://finance.aldhaheri.co">Finance</a>
+        <a href="https://market.aldhaheri.co">Market</a>
+        <a href="https://realestate.aldhaheri.co">Real Estate</a>
+        <a href="https://trade.aldhaheri.co" class="active">Trade</a>
+    </nav>
+
+    <div class="container">
+        <svg class="bot-icon" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="6" y="8" width="16" height="14" rx="3" stroke="#7C3AED" stroke-width="1.5" opacity="0.7"/>
+            <circle cx="11" cy="14" r="1.5" fill="#7C3AED"/>
+            <circle cx="17" cy="14" r="1.5" fill="#7C3AED"/>
+            <line x1="10" y1="18" x2="18" y2="18" stroke="#7C3AED" stroke-width="1.5" opacity="0.5"/>
+            <line x1="14" y1="4" x2="14" y2="8" stroke="#7C3AED" stroke-width="1.5" opacity="0.5"/>
+            <circle cx="14" cy="3" r="1.5" fill="#7C3AED" opacity="0.6"/>
+        </svg>
+
+        <h1>Trade Bot Discontinued</h1>
+        <p class="subtitle">The ML trading pipeline has been retired. Daily signals, paper trading, and model retraining are no longer running.</p>
+
+        <div class="status-badge">
+            <span class="status-dot"></span>
+            Discontinued
+        </div>
+
+        <a href="https://aldhaheri.co/dashboard" class="back-link">Back to Dashboard</a>
+    </div>
+
+</body>
+</html>

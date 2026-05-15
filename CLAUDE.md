@@ -7,6 +7,8 @@ Monorepo for all aldhaheri.co services. SSO hub + four subdomain projects (finan
 
 **Market Intel is shelved** — container serves a static "Coming Back Soon" page only. Scraper, API routes, and daily cron are disabled. Data volume (`market-data`) is preserved.
 
+**Trade Bot is discontinued (2026-05-15)** — only a static "Discontinued" page is served on `trade.aldhaheri.co` (single `trade-bot-shelved` nginx container on port 3003). All crons removed; `trade-bot`, `trade-bot-api`, `trade-bot-sentiment` containers removed; `trade-bot-dashboard` was replaced by the shelved nginx. The four trade volumes (`aldhaheri-co_trade-data`, `_trade-model`, `_trade-output`, `_trade-logs`) are **preserved on the VPS** for now (not mounted by any service) — kept on disk in case the project is revived. Code under `trade/` (main.py, src/, api/, dashboard/) is kept in the repo for reference but no longer built. Hub project card removed.
+
 **No test suite or CI/CD pipeline exists.** No pytest, jest, or GitHub Actions.
 
 ## Commands
@@ -17,14 +19,14 @@ cd hub/backend && uvicorn main:app --reload --port 4001
 cd finance/backend && uvicorn backend.main:app --reload --port 8000
 cd market && python server.py
 cd realestate/backend && uvicorn main:app --reload --port 8002
-cd trade/api && uvicorn main:app --reload --port 8003
-cd trade && python main.py --phase 1  # phases 1-5, add --dry-run for safe testing
 ```
+
+Trade bot pipeline commands are deprecated — the project is discontinued (see above).
 
 ### Local frontend dev
 ```bash
 cd <project>/frontend && npm install && npm run dev
-# Hub: localhost:4000, Finance: localhost:3000, Realestate: localhost:3002, Trade: localhost:3003
+# Hub: localhost:4000, Finance: localhost:3000, Realestate: localhost:3002
 ```
 
 ### Real Estate scraper pipeline
@@ -61,8 +63,8 @@ bash deploy.sh   # Commits, pushes, SSHs to VPS, pulls, rebuilds
 - **Finance**: React 18 + Recharts + Tailwind 3, FastAPI + async SQLAlchemy + aiosqlite + Anthropic SDK
 - **Market**: Flask + Vanilla JS + Anthropic SDK (Claude Haiku) — **shelved**, static page only
 - **Real Estate**: React 18 + Vite + Recharts, FastAPI, Playwright + BeautifulSoup scrapers
-- **Trade**: React 19 + Vite + Recharts, FastAPI, XGBoost + FinBERT sentiment, Alpaca SDK
-- **Databases**: All SQLite (no Postgres). Trade uses JSON files instead of a DB.
+- **Trade**: **discontinued** — static nginx page only. Legacy code (React 19 + Vite, FastAPI, XGBoost + FinBERT + Alpaca SDK) preserved under `trade/` but no longer built.
+- **Databases**: All SQLite (no Postgres).
 - **Package managers**: npm (all frontends), pip + requirements.txt (all backends)
 
 ## Architecture
@@ -70,14 +72,14 @@ bash deploy.sh   # Commits, pushes, SSHs to VPS, pulls, rebuilds
 ### Docker Compose structure
 Root `docker-compose.yml` uses `include:` to merge per-project compose files. Hub services are defined directly in root. Each per-project compose file references `../.env` (the single root env file) and can be started independently. Frontend containers use multi-stage Docker builds (node → nginx) with per-project `nginx.conf` files for SPA routing (`try_files $uri $uri/ /index.html`). Finance frontend bakes `VITE_API_URL` and `VITE_API_KEY` as Docker build args — other frontends have no build-time env vars.
 
-### Services (11 total)
+### Services (8 total)
 | Service | Port | Health |
 |---|---|---|
 | hub-frontend / hub-backend | 4000 / 4001 | /health (backend) |
 | finance-frontend / finance-backend | 3000 / 8001 (internal 8000) | /health (backend) |
 | market-intel | 8000 | /health |
 | realestate-frontend / realestate-backend | 3002 / 8002 | /health (backend) |
-| trade-bot-dashboard / trade-bot-api / trade-bot / trade-bot-sentiment | 3003 / 8003 / none / none | /health (api), cron (bot, sentiment) |
+| trade-bot-shelved | 3003 | /health (returns shelved JSON) |
 
 ### SSO / JWT Auth
 - Hub backend creates JWT with `sub` + `sid`, sets `session` cookie on `.aldhaheri.co`
@@ -95,7 +97,7 @@ Root `docker-compose.yml` uses `include:` to merge per-project compose files. Hu
 ### Code patterns
 - **Thin routes + service logic**: Routes in `/routers/` handle HTTP only; business logic in service files (`parser.py`, `notifications.py`, `session_store.py`, `sweep.py`)
 - **Soft-delete everywhere**: All deletes set `deleted=True`, queries filter `WHERE deleted=False`
-- **Async DB**: Finance and Hub use async SQLAlchemy + aiosqlite. Real Estate uses `?immutable=1`. Market uses sync sqlite3. Trade reads JSON files.
+- **Async DB**: Finance and Hub use async SQLAlchemy + aiosqlite. Real Estate uses `?immutable=1`. Market uses sync sqlite3.
 - **File placement**: New API routes → `<project>/backend/routers/`, new UI components → `<project>/frontend/src/components/`, DB models → `<project>/backend/models.py`
 - **Lifted filter state**: Finance dashboard search is owned by `Dashboard` in `App.jsx` (not `RecentTransactions`). All filters — toggle pills, date range, and text search — feed into one `filteredTransactions` memo that drives charts, stat cards, summary, and the transaction table.
 - **Dashboard charts** (top to bottom, 2-col grid): Monthly Inflow vs Outflow | Cumulative Inflow vs Outflow | Income by Category | Income by Merchant | Spend by Category | Spend by Merchant. Category and merchant pie charts share `CategoryPieChart.jsx`; clicking a slice opens `CategoryDrilldown` filtered by category or merchant.
@@ -105,12 +107,10 @@ Root `docker-compose.yml` uses `include:` to merge per-project compose files. Hu
 - Hub DB: `/data/` (Docker volume `hub-data`)
 - Market DB: `/app/data/market_intel.db`
 - Real Estate DB: `data/listings.db` (local bind mount `./data`, not a named volume)
-- Trade: four named volumes — `trade-data`, `trade-model`, `trade-output`, `trade-logs`
 
 ### Container resources
 - All frontends/backends: 512M memory, 0.5 CPU
-- **trade-bot**: 2G memory, 1.0 CPU
-- **trade-bot-sentiment**: 1800M memory, 3G swap, `restart: "no"` (FinBERT model needs ~500MB RAM, CPU-only PyTorch; no restart to avoid OOM loops)
+- **trade-bot-shelved**: 128M memory, 0.25 CPU (static nginx only)
 - Logging: `json-file` driver, 10MB max × 3 files per service
 
 ### Nginx (VPS reverse proxy)
@@ -143,22 +143,10 @@ Account variants like `XXX810002`, `XXX920001`, `XXX920002` are mapped to short 
 ### Webhook ingestion guards (webhook.py)
 Rejects: empty/short SMS, unresolved Tasker variables, failed/declined keywords, pending/uncleared transactions (e.g. "subject to verification", "pending clearance", "cheque will be processed"), exact duplicate SMS, zero-amount transactions, confirmation SMS (processed as merchant update, not new transaction). Cheque deposits are only recorded once a separate confirmation SMS arrives (pending cheque notifications are filtered out). After save, checks for suspected repeats (same merchant + amount + date) and alerts via Telegram.
 
-## Trade Pipeline Phases
-CLI-driven via `trade/main.py --phase N` (add `--dry-run` to skip real trades):
-1. **Ingest**: OHLCV + market data (VIX, SPY, 7 sector ETFs) from yfinance/Alpaca
-2. **Features**: Technical indicators, fundamental ratios, analyst data (target gap, revision momentum from `upgrades_downgrades`), sector-relative strength (vs SPDR ETFs), short interest, sector one-hot, FinBERT sentiment
-3. **Train**: XGBoost with feature pruning + Platt calibration → `model/saved/`
-4. **Signals**: Daily buy/sell → `output/signals_YYYY-MM-DD.json` (fetches live sentiment for reasoning)
-5. **Execute**: Reconcile positions against Alpaca (`reconcile_positions()`) + paper trade → `output/open_positions.json`
+## Trade Bot — DISCONTINUED (2026-05-15)
+Pipeline, daily signals, paper trading, Telegram messaging, and weekly retrain were all cancelled on 2026-05-15. All trade crons removed from VPS crontab. The four data volumes (`aldhaheri-co_trade-data/-model/-output/-logs`) are preserved on the VPS (parked, unmounted) so the model, signal history, Finnhub cache, and sentiment accumulation can be recovered if the project is revived. Only a single `trade-bot-shelved` nginx container (port 3003) remains, serving a static "Discontinued" page at `trade.aldhaheri.co`. The Telegram bot tokens (`TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`) are kept in `.env` because Finance still uses them.
 
-**Position reconciliation** (Phase 5): Before trading, `reconcile_positions()` syncs `open_positions.json` against Alpaca's actual positions to prevent drift from manual trades. Skipped in `--dry-run`. Fails safe — keeps local positions unchanged if Alpaca API fails. Uses reverse `alpaca_symbol_map` from `CFG` to translate Alpaca symbols back to yfinance tickers.
-
-**Feature set (49 active after pruning)**: Technical indicators (RSI, MACD, Bollinger, ATR, OBV, volume z-score), rolling window stats, lagged returns, fundamental ratios (from yfinance quarterly financials), market regime (VIX, SPY), sector-relative strength (vs SPDR sector ETFs: XLK/XLC/XLY/XLF/XLV/XLE/XLP), sector one-hot encoding, analyst features (target gap from `upgrades_downgrades`, revision momentum), and short interest. Sector ETF mapping in `CFG.ticker_sector`. Dropped features: `f_current_ratio`, `f_operating_margin`, `macd_hist` (unstable across folds).
-
-**FinBERT sentiment**: `src/sentiment.py` lazy-loads ProsusAI/finbert on first call. Container memory raised to 2G (model needs ~500MB RAM, CPU-only PyTorch). Sentiment accumulates in `data/sentiment.csv`; Phase 4 fetches live sentiment for signal reasoning. **Suspended from model training** (0.45% row coverage, 0.0 feature importance). Accumulation pipeline runs passively; reintroduce to model when coverage exceeds 30%. Controlled by `_SUSPENDED_FEATURES` list in `train.py`.
-
-### Trade (VPS crontab, EDT timezone)
-Phases 4+5 weekdays 10:00 AM / 2:00 PM UTC (6:00 AM / 10:00 AM EDT), Phases 1-3 Sunday 6:00 AM EDT (10:00 UTC). FinBERT sentiment worker runs weekdays 9:30 AM ET (separate container). Phase 4 includes feedback loop evaluation of past predictions (directional accuracy only — HOLD signals excluded from scoring, 10-day evaluation horizon). **Regime-adjusted signal thresholds** based on VIX level: Low VIX (<15) buy≥0.58/sell≤0.35, Normal (15-20) buy≥0.55/sell≤0.35, Elevated (20-25) buy≥0.52/sell≤0.38, High (>25) buy≥0.50/sell≤0.40. Model uses Platt-calibrated XGBoost (CalibratedClassifierCV with TimeSeriesSplit, not StratifiedKFold). 10-day prediction target (`CFG.target_horizon=10`). Drawdown circuit breaker halts new buys at 8% drawdown from peak OR 8% decline from inception equity — whichever triggers first. **Weekly Telegram summary** fires after Sunday retrain with CV metrics, signal distribution, trade count, circuit breaker status, and abnormality flags.
+Source code (`trade/main.py`, `trade/src/`, `trade/api/`, `trade/dashboard/`) is preserved in-repo for reference but is not built by any compose file. Reviving the bot would require: refactoring `trade/docker-compose.yml` back to the four-service layout from git history, re-attaching the preserved volumes, re-adding cron lines on the VPS, re-adding the hub project card, and validating the (now-stale) model against current market state.
 
 ### Market — DISABLED
 Daily scraper cron removed from VPS on 2026-03-28.
@@ -179,11 +167,8 @@ Daily scraper cron removed from VPS on 2026-03-28.
 - **10:00 UTC**: Telegram alert for unidentified transactions (`notifications.py`)
 - **1st of month 09:00 UTC**: Statement reminder (`notifications.py`)
 
-### Trade (VPS crontab, EDT timezone)
-- **6:00 AM Mon-Fri (10:00 UTC)**: Phase 4 — signal generation + feedback loop
-- **10:00 AM Mon-Fri (14:00 UTC)**: Phase 5 — trade execution
-- **9:30 AM Mon-Fri**: FinBERT sentiment worker (separate container)
-- **6:00 AM Sunday (10:00 UTC)**: Phases 1-3 — full retrain + weekly Telegram summary
+### Trade — DISCONTINUED
+All trade cron entries removed from VPS crontab on 2026-05-15.
 
 ## Coding Conventions
 - **Python**: PEP8, type hints, async handlers, APIRouter pattern
@@ -211,7 +196,9 @@ Daily scraper cron removed from VPS on 2026-03-28.
 ## Environment Variables
 All services read from the single root `.env` file. See `.env.example` for the full list. Key shared var: `JWT_SECRET` (used by ALL services). Each project section in `.env.example` documents its own vars.
 
-**Telegram bots**: `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` are used independently by both Finance (notifications, webhook alerts) and Trade (signals, weekly summary) containers. `TELEGRAM_CHATBOT_TOKEN` is a separate bot token used only by the Finance conversational chatbot (`telegram_bot.py`).
+**Telegram bots**: `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` are used by Finance (notifications, webhook alerts). Kept in `.env` even though Trade is discontinued. `TELEGRAM_CHATBOT_TOKEN` is a separate bot token used only by the Finance conversational chatbot (`telegram_bot.py`).
+
+**Discontinued vars**: `FINNHUB_API_KEY`, `ALPACA_API_KEY`, `ALPACA_SECRET_KEY` are no longer used by any running service (Trade was cancelled 2026-05-15). Safe to remove from `.env` but leaving them doesn't hurt.
 
 ## Adding a New Project
 1. Create `<project>/` directory with backend/frontend and its own `docker-compose.yml`
@@ -224,10 +211,10 @@ All services read from the single root `.env` file. See `.env.example` for the f
 8. Deploy: `docker compose up -d --build`
 
 ## API Endpoints
-See `README.md` for the full API endpoint reference for all services. Every backend exposes `GET /health` (unauthenticated). All other `/api/*` endpoints require a valid session cookie.
+See `README.md` for the full API endpoint reference for all services. Every backend exposes `GET /health` (unauthenticated). All other `/api/*` endpoints require a valid session cookie. Trade has no API endpoints — only the shelved page's `/health` is exposed at `trade.aldhaheri.co/health`.
 
 ## Legacy Artifacts
-Per-project `.env.example` and `deploy.sh` in subdirectories are leftovers — use only the root versions. Per-project `CLAUDE.md` files in subdirectories contain supplementary context but may be outdated — this root file is authoritative. `trade/google_apps_script/` is a standalone Google Sheets script, not part of the pipeline. Note: `trade/CLAUDE.md` references `?token=` URL auth in the dashboard — this is outdated; all services now use cookie-only auth.
+Per-project `.env.example` and `deploy.sh` in subdirectories are leftovers — use only the root versions. Per-project `CLAUDE.md` files in subdirectories contain supplementary context but may be outdated — this root file is authoritative. **`trade/CLAUDE.md`, `trade/main.py`, `trade/src/`, `trade/api/`, `trade/dashboard/`, `trade/google_apps_script/`** describe the discontinued pipeline and are no longer authoritative — kept as historical reference only.
 
 ## VPS
 - **IP**: 165.232.162.72 | **Repo**: `/opt/aldhaheri-co` | **Backups**: `/opt/backups/`

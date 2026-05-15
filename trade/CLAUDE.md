@@ -1,5 +1,7 @@
 # Trade-Bot Project Guide
 
+> ⛔ **DISCONTINUED 2026-05-15** — the trade bot has been fully cancelled. Cron jobs and four containers (`trade-bot`, `trade-bot-api`, `trade-bot-sentiment`, `trade-bot-dashboard`) have been removed from the VPS. The four data volumes (`aldhaheri-co_trade-data/-model/-output/-logs`) are **preserved on disk** (unmounted) — kept in case the project is revived. The subdomain serves a static "Discontinued" page from `trade-bot-shelved` (see `trade/shelved/`). Everything below describes the historical pipeline and is kept for reference only — do not rely on it as authoritative. The root `CLAUDE.md` is the current source of truth.
+
 ## Deployment
 
 - **Droplet:** `root@165.232.162.72` at `/opt/trade-bot`

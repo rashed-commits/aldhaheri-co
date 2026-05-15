@@ -20,13 +20,6 @@ const projects = [
     url: 'https://realestate.aldhaheri.co',
     healthUrl: 'https://realestate.aldhaheri.co/health',
   },
-  {
-    name: 'Trade Bot',
-    description: 'Live portfolio dashboard for automated trading',
-    icon: '\uD83E\uDD16',
-    url: 'https://trade.aldhaheri.co',
-    healthUrl: 'https://trade.aldhaheri.co/health',
-  },
 ]
 
 export default projects

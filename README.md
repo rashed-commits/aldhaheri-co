@@ -27,8 +27,8 @@ UAE business signal intelligence. Currently offline — serves a static "Coming 
 ### Real Estate — [realestate.aldhaheri.co](https://realestate.aldhaheri.co)
 Property analytics for Abu Dhabi and Dubai. Scrapes PropertyFinder and Bayut, scores listings on 4 opportunity signals (rental yield, price discount, price drops, off-plan), delivers daily PDF reports via email, and serves a React dashboard with area benchmarks and listing tables.
 
-### Trade — [trade.aldhaheri.co](https://trade.aldhaheri.co)
-ML-powered stock trading bot. Five-phase pipeline: data ingestion (yfinance/Alpaca), feature engineering (technicals + fundamentals + analyst data + sector-relative strength + short interest), XGBoost model training with Platt-calibrated probabilities (TimeSeriesSplit), daily signal generation with VIX regime-adjusted thresholds, and Alpaca paper trade execution with position reconciliation. 10-day prediction horizon. Drawdown circuit breaker halts trading at 8% decline from peak or inception. Prediction feedback loop tracks directional accuracy (BUY/SELL only, HOLD excluded). Weekly Telegram summary after each Sunday retrain. FinBERT sentiment runs passively (accumulating data) but is suspended from model training until coverage exceeds 30%. React dashboard for portfolio monitoring.
+### Trade — [trade.aldhaheri.co](https://trade.aldhaheri.co) *(discontinued)*
+ML-powered stock trading bot, discontinued on 2026-05-15. The subdomain serves a static "Discontinued" page. The pipeline, daily signals, paper trading, weekly retrain, and Telegram messaging are all stopped. Source code is preserved under `trade/` in the repo for reference; data volumes are parked (unmounted) on the VPS.
 
 ## Architecture
 
@@ -47,11 +47,9 @@ aldhaheri_co/
     backend/              # FastAPI (port 8002)
     frontend/             # React 18 + Recharts (port 3002)
     scrapers/             # PropertyFinder + Bayut
-  trade/                  # ML trading bot + dashboard
-    main.py               # CLI orchestrator (phases 1-5)
-    src/                  # XGBoost pipeline
-    api/                  # FastAPI (port 8003)
-    dashboard/            # React 19 + Recharts (port 3003)
+  trade/                  # DISCONTINUED — static shelved page only
+    shelved/              # nginx + static index.html (port 3003)
+    main.py / src/ / api/ / dashboard/   # Legacy pipeline code, no longer built
   docker-compose.yml      # Root compose — includes all per-project compose files
   .env                    # Single env file for ALL services
   deploy.sh               # One-command deploy (push + VPS pull + rebuild)
@@ -72,10 +70,7 @@ The root `docker-compose.yml` uses `include:` to merge per-project compose files
 | Market Intel | market-intel | 8000 | /health |
 | Real Estate Backend | realestate-backend | 8002 | /health |
 | Real Estate Frontend | realestate-frontend | 3002 | -- |
-| Trade Bot | trade-bot | -- | cron-driven |
-| Trade Bot Sentiment | trade-bot-sentiment | -- | cron-driven (FinBERT) |
-| Trade Bot API | trade-bot-api | 8003 | /health |
-| Trade Bot Dashboard | trade-bot-dashboard | 3003 | -- |
+| Trade Bot Shelved | trade-bot-shelved | 3003 | /health (static) |
 
 ## Auth Flow
 
@@ -104,10 +99,9 @@ All services read from the single root `.env`. See [`.env.example`](.env.example
 | `HUB_USERNAME` / `HUB_PASSWORD` | Hub | Login credentials |
 | `ANTHROPIC_API_KEY` | Finance, Market | Claude AI for SMS parsing, chatbot, signal classification |
 | `WEBHOOK_API_KEY` | Finance | Tasker webhook auth |
-| `TELEGRAM_BOT_TOKEN` | Finance, Trade | Telegram notifications (independent per service) |
+| `TELEGRAM_BOT_TOKEN` | Finance | Telegram notifications |
 | `TELEGRAM_CHATBOT_TOKEN` | Finance | Telegram chatbot (separate bot) |
-| `TELEGRAM_CHAT_ID` | Finance, Trade | Telegram chat target |
-| `ALPACA_API_KEY` / `ALPACA_SECRET_KEY` | Trade | Alpaca paper trading |
+| `TELEGRAM_CHAT_ID` | Finance | Telegram chat target |
 | `BREVO_API_KEY` | Real Estate | Email report delivery |
 | `SENDER_EMAIL` / `REPORT_RECIPIENT` | Real Estate | Report sender and recipient |
 
@@ -119,13 +113,9 @@ cd hub/backend && uvicorn main:app --reload --port 4001
 cd finance/backend && uvicorn backend.main:app --reload --port 8000
 cd market && python server.py
 cd realestate/backend && uvicorn main:app --reload --port 8002
-cd trade/api && uvicorn main:app --reload --port 8003
 
 # Run a frontend locally (all follow the same pattern)
 cd <project>/frontend && npm install && npm run dev
-
-# Trade pipeline
-cd trade && python main.py --phase 1  # phases 1-5
 
 # Docker — build all services
 docker compose up -d --build
@@ -154,11 +144,8 @@ ssh root@165.232.162.72 "cd /opt/aldhaheri-co && docker compose ps"
 - **10:00 UTC** — Telegram alert for unidentified transactions
 - **1st of month 09:00 UTC** — Statement reminder
 
-### Trade (VPS crontab, EDT timezone)
-- **10:00 AM Mon-Fri** — Phase 4: signal generation + feedback loop evaluation
-- **2:00 PM Mon-Fri** — Phase 5: trade execution with position reconciliation
-- **6:00 AM Sunday** — Phases 1-3: full retrain (data ingest + features + training) + weekly Telegram summary
-- **9:30 AM Mon-Fri** — FinBERT sentiment worker (separate container)
+### Trade (VPS crontab) — DISCONTINUED
+- All trade crons removed on 2026-05-15
 
 ### Market (VPS crontab) — DISABLED
 - Daily scraper cron removed on 2026-03-28
@@ -218,14 +205,7 @@ ssh root@165.232.162.72 "cd /opt/aldhaheri-co && docker compose ps"
 | GET | `/api/stats` | Database statistics |
 
 ### Trade
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/portfolio/summary` | Equity, P&L, position count |
-| GET | `/api/portfolio/positions` | Open positions with current prices |
-| GET | `/api/portfolio/signals` | Last 30 days of signals |
-| GET | `/api/portfolio/signals/latest` | Most recent signal file |
-| GET | `/api/portfolio/performance` | Model metrics (accuracy, ROC-AUC, F1) |
-| GET | `/api/portfolio/features` | Top 15 feature importances |
+Discontinued — no API endpoints. `trade.aldhaheri.co/health` returns a static JSON marker indicating shelved status.
 
 All `/api/*` endpoints require a valid session cookie unless noted otherwise. Every service exposes `GET /health` (unauthenticated).
 
@@ -257,10 +237,9 @@ All `/api/*` endpoints require a valid session cookie unless noted otherwise. Ev
 |---|---|
 | Frontends | React 18/19, Vite, Tailwind CSS 3/4, Recharts |
 | Backends | FastAPI (4 services), Flask (Market) |
-| AI/ML | Claude Sonnet (Finance), Claude Haiku (Market), XGBoost + Platt calibration + FinBERT (Trade) |
-| Databases | SQLite everywhere, JSON files (Trade pipeline output) |
+| AI/ML | Claude Sonnet (Finance), Claude Haiku (Market) |
+| Databases | SQLite everywhere |
 | Infrastructure | Docker Compose, Nginx + Certbot, DigitalOcean Ubuntu VPS |
-| Trading | Alpaca SDK (paper trading) |
 | Scraping | Playwright, BeautifulSoup, Apify, Tavily |
 | Notifications | Telegram Bot API, Brevo (email) |
 
