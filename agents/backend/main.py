@@ -16,6 +16,7 @@ from backend.routers import (
     manager,
     memory,
     proposals,
+    sessions,
     skills,
     user_profile,
 )
@@ -68,6 +69,7 @@ app.include_router(skills.router)
 app.include_router(proposals.router)
 app.include_router(user_profile.router)
 app.include_router(crons.router)
+app.include_router(sessions.router)
 
 
 @app.get("/health")

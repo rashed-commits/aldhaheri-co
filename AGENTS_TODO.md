@@ -72,8 +72,9 @@ Personal AI agent office — a manager agent that dynamically spawns, manages, a
 - [x] Wire `start_scheduler()` + `shutdown_scheduler()` into the lifespan
 
 ## Phase 7 — Session search
-- [ ] `routers/sessions.py` — list, get full transcript, search via FTS5
-- [ ] FTS5 query: `MATCH` against indexed content, return ranked snippets
+- [x] `routers/sessions.py` — list (optional agent_id filter), get full transcript, FTS5 search
+- [x] FTS5 `MATCH` query with `snippet()` returning highlighted excerpts ranked by relevance
+- [x] Route order: `/search` registered before `/{session_id}` so it isn't swallowed
 
 ## Phase 8 — Frontend scaffolding
 - [ ] `agents/frontend/` Vite + React 19 + Tailwind 4 init (mirror hub)
