@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Header from '../components/Header'
+import AppNav from '../components/AppNav'
 import IsoGrid from '../components/IsoGrid'
 import ManagerInput from '../components/ManagerInput'
-import ChatPanel from '../components/ChatPanel'
+import AgentPanel from '../components/AgentPanel'
 import { listAgents } from '../services/agents'
 import { routeToAgent } from '../services/manager'
+import { listProposals } from '../services/proposals'
 import { COLORS } from '../config/theme'
 
 const POLL_INTERVAL_MS = 3000
@@ -15,6 +17,7 @@ export default function Office() {
   const [routeError, setRouteError] = useState(null)
   const [routePending, setRoutePending] = useState(false)
   const [conversation, setConversation] = useState(null)
+  const [pendingProposalsCount, setPendingProposalsCount] = useState(0)
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -27,11 +30,24 @@ export default function Office() {
     }
   }, [])
 
+  const fetchProposalCount = useCallback(async () => {
+    try {
+      const data = await listProposals({ status: 'pending' })
+      setPendingProposalsCount(data.length)
+    } catch (err) {
+      console.warn('Failed to load proposal count', err)
+    }
+  }, [])
+
   useEffect(() => {
     fetchAgents()
-    const handle = setInterval(fetchAgents, POLL_INTERVAL_MS)
+    fetchProposalCount()
+    const handle = setInterval(() => {
+      fetchAgents()
+      fetchProposalCount()
+    }, POLL_INTERVAL_MS)
     return () => clearInterval(handle)
-  }, [fetchAgents])
+  }, [fetchAgents, fetchProposalCount])
 
   const manager = useMemo(
     () => agents.find((a) => a.role === 'manager') || null,
@@ -69,8 +85,20 @@ export default function Office() {
 
   const closeChat = useCallback(() => setConversation(null), [])
 
+  // After spawn-accept, both add to agents list AND transition the active
+  // conversation into chat mode so AgentPanel shows tabs and the right header.
   const handleAgentSpawned = useCallback((newAgent) => {
     setAgents((prev) => [...prev, newAgent])
+    setConversation((prev) =>
+      prev && prev.mode === 'spawn'
+        ? {
+            ...prev,
+            mode: 'chat',
+            agentId: newAgent.id,
+            agent: newAgent,
+          }
+        : prev,
+    )
   }, [])
 
   const handleRoute = useCallback(
@@ -110,6 +138,7 @@ export default function Office() {
       }}
     >
       <Header />
+      <AppNav pendingProposalsCount={pendingProposalsCount} />
 
       <main
         style={{
@@ -164,7 +193,7 @@ export default function Office() {
       />
 
       {conversation && (
-        <ChatPanel
+        <AgentPanel
           key={conversation.mode === 'spawn' ? 'spawn' : `agent-${conversation.agentId}`}
           conversation={conversation}
           onClose={closeChat}

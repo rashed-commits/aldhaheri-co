@@ -2,31 +2,27 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { COLORS } from '../config/theme'
-import AgentSprite from './AgentSprite'
 import SpawnApprovalCard from './SpawnApprovalCard'
 import { createAgent } from '../services/agents'
 import { streamChat } from '../services/chat'
 import { acceptProposal, listProposals, rejectProposal } from '../services/proposals'
 
 /**
- * Right-side slide-in chat panel.
+ * Chat-tab body. Renders the transcript, streams Sonnet responses,
+ * surfaces inline proposals after each turn, and (in spawn mode) renders
+ * the SpawnApprovalCard until the user accepts and the agent is created.
+ *
+ * Wrapper/header live in AgentPanel.jsx now.
  *
  * Props:
- *   conversation: {
- *     mode: 'chat' | 'spawn',
- *     agent?: Agent,              // for chat mode
- *     agentId?: number,           // for chat mode
- *     initialMessage?: string,    // auto-fire on mount (chat) or after spawn (spawn)
- *     framing?: string,           // manager's task framing for the first turn
- *     proposedAgent?: object,     // for spawn mode
- *     rationale?: string,
- *   }
- *   onClose:        () => void
- *   onAgentSpawned: (newAgent) => void
+ *   conversation:   { mode, agentId?, agent?, proposedAgent?, rationale?, initialMessage?, framing? }
+ *   onAgentSpawned: (newAgent) => void   parent transitions conversation to chat mode
+ *   onClose:        () => void           used by spawn-reject
  */
-export default function ChatPanel({ conversation, onClose, onAgentSpawned }) {
-  const [agent, setAgent] = useState(conversation?.agent || null)
-  const [agentId, setAgentId] = useState(conversation?.agentId ?? null)
+export default function ChatPanel({ conversation, onAgentSpawned, onClose }) {
+  const agentId = conversation?.agentId ?? null
+  const isSpawnMode = conversation?.mode === 'spawn' && !agentId
+
   const [sessionId, setSessionId] = useState(null)
   const [turns, setTurns] = useState([])
   const [streaming, setStreaming] = useState(false)
@@ -40,16 +36,6 @@ export default function ChatPanel({ conversation, onClose, onAgentSpawned }) {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [turns, pendingProposals])
-
-  // Fire initial message (chat mode only — spawn mode waits for Accept)
-  useEffect(() => {
-    if (initialFiredRef.current) return
-    if (conversation?.mode === 'chat' && conversation.initialMessage && agentId) {
-      initialFiredRef.current = true
-      streamTurn(agentId, conversation.initialMessage, conversation.framing || '')
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversation, agentId])
 
   const fetchProposalsForSession = useCallback(async (sid, aid) => {
     try {
@@ -120,24 +106,34 @@ export default function ChatPanel({ conversation, onClose, onAgentSpawned }) {
     setStreaming(false)
 
     if (endedSessionId && targetId) {
-      // Reflection writes proposals after the stream closes — give it a beat.
       setTimeout(() => fetchProposalsForSession(endedSessionId, targetId), 4000)
     }
   }, [sessionId, streaming, fetchProposalsForSession])
+
+  // Auto-fire initial message in chat mode
+  useEffect(() => {
+    if (initialFiredRef.current) return
+    if (conversation?.mode === 'chat' && conversation.initialMessage && agentId) {
+      initialFiredRef.current = true
+      streamTurn(agentId, conversation.initialMessage, conversation.framing || '')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversation, agentId])
 
   const handleSpawnAccept = useCallback(async (edited) => {
     setSpawnPending(true)
     setError(null)
     try {
       const newAgent = await createAgent(edited)
-      setAgent(newAgent)
-      setAgentId(newAgent.id)
       onAgentSpawned?.(newAgent)
-      setSpawnPending(false)
       initialFiredRef.current = true
+      // Fire the initial message at the new agent immediately. We can't wait
+      // for the conversation prop to round-trip — streamTurn takes the id
+      // explicitly so the call doesn't depend on prop propagation.
       await streamTurn(newAgent.id, conversation.initialMessage || '', '')
     } catch (err) {
       setError(err.message || 'Spawn failed')
+    } finally {
       setSpawnPending(false)
     }
   }, [conversation, onAgentSpawned, streamTurn])
@@ -170,67 +166,8 @@ export default function ChatPanel({ conversation, onClose, onAgentSpawned }) {
     streamTurn(agentId, msg)
   }
 
-  const isSpawnMode = conversation?.mode === 'spawn' && !agentId
-
   return (
-    <div style={{
-      position: 'fixed',
-      top: 40,
-      right: 0,
-      bottom: 0,
-      width: 'min(480px, 100vw)',
-      backgroundColor: COLORS.bgBase,
-      borderLeft: `1px solid ${COLORS.border}`,
-      boxShadow: '-10px 0 30px rgba(0,0,0,0.4)',
-      display: 'flex',
-      flexDirection: 'column',
-      animation: 'slide-in 0.25s ease-out',
-      zIndex: 50,
-    }}>
-      {/* Header */}
-      <div style={{
-        padding: '12px 18px',
-        borderBottom: `1px solid ${COLORS.border}`,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-      }}>
-        <div style={{ width: 28, display: 'flex', justifyContent: 'center' }}>
-          <AgentSprite
-            status={agent?.status || 'idle'}
-            bodyColor={agent?.role === 'manager' ? COLORS.accent : COLORS.accentLight}
-            isManager={agent?.role === 'manager'}
-            size={28}
-          />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>
-            {isSpawnMode ? `Spawning: ${conversation.proposedAgent?.name || '?'}` : agent?.name || 'Agent'}
-          </div>
-          {agent?.specialization && !isSpawnMode && (
-            <div style={{ fontSize: 11, color: COLORS.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {agent.specialization}
-            </div>
-          )}
-        </div>
-        <button
-          onClick={onClose}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: COLORS.textMuted,
-            fontSize: 22,
-            cursor: 'pointer',
-            padding: 4,
-            lineHeight: 1,
-          }}
-          aria-label="Close"
-        >
-          ×
-        </button>
-      </div>
-
-      {/* Body */}
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
         {isSpawnMode && (
           <SpawnApprovalCard
@@ -270,7 +207,6 @@ export default function ChatPanel({ conversation, onClose, onAgentSpawned }) {
         )}
       </div>
 
-      {/* Input */}
       {agentId && (
         <form onSubmit={handleInputSubmit} style={{
           padding: 12,
@@ -372,12 +308,6 @@ function TurnRow({ turn }) {
   )
 }
 
-/**
- * Strip `<action>...</action>` JSON blocks from the visible bubble text.
- * The parsed actions still render as cards below the turn; the block itself
- * was only ever a transport mechanism. Also strips a trailing partial open
- * tag during streaming so the user doesn't see a flicker of `<action>`.
- */
 function stripActionBlocks(text) {
   let cleaned = text.replace(/<action>[\s\S]*?<\/action>/g, '')
   const partial = cleaned.lastIndexOf('<action>')
