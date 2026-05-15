@@ -316,33 +316,115 @@ function stripActionBlocks(text) {
 }
 
 function ActionPreview({ action }) {
+  const result = action._result
+  const executed = result != null
+  const success = executed && result.success
+  const accent = !executed
+    ? COLORS.accentLight
+    : success ? COLORS.success : COLORS.danger
+  const label = !executed
+    ? 'Proposed'
+    : success ? 'Executed' : 'Failed'
+
+  // Hide internal _result key when echoing the JSON payload
+  const payload = { ...action }
+  delete payload._result
+
+  // Delegate produces a child agent response we want to surface prominently
+  const delegatedResponse = success
+    && action.type === 'delegate'
+    && result?.data?.response
+
   return (
     <div style={{
       padding: '10px 12px',
       borderRadius: 8,
       backgroundColor: COLORS.bgCard,
-      border: `1px solid ${COLORS.accentLight}`,
+      border: `1px solid ${accent}`,
       marginBottom: 6,
       fontSize: 12,
     }}>
       <div style={{
-        color: COLORS.accentLight,
-        fontWeight: 600,
-        fontSize: 11,
-        letterSpacing: '0.04em',
-        textTransform: 'uppercase',
-        marginBottom: 4,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 6,
       }}>
-        Action · {action.type || 'unknown'}
+        <span style={{
+          color: accent,
+          fontWeight: 700,
+          fontSize: 10,
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+        }}>
+          {label}
+        </span>
+        <span style={{ color: COLORS.textPrimary, fontWeight: 600, fontSize: 12 }}>
+          {action.type || 'unknown'}
+        </span>
+        {executed && result.message && (
+          <span style={{
+            color: success ? COLORS.textMuted : COLORS.danger,
+            fontSize: 11,
+            marginLeft: 'auto',
+            textAlign: 'right',
+          }}>
+            {result.message}
+          </span>
+        )}
       </div>
-      <pre style={{
-        margin: 0,
-        fontSize: 11,
-        color: COLORS.textMuted,
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-        fontFamily: 'ui-monospace, monospace',
-      }}>{JSON.stringify(action, null, 2)}</pre>
+
+      {delegatedResponse && (
+        <div style={{
+          padding: 10,
+          marginBottom: 6,
+          borderRadius: 6,
+          background: COLORS.bgBase,
+          border: `1px solid ${COLORS.borderSoft}`,
+        }}>
+          <div style={{
+            fontSize: 10,
+            fontWeight: 600,
+            color: COLORS.accentLight,
+            letterSpacing: '0.05em',
+            textTransform: 'uppercase',
+            marginBottom: 6,
+          }}>
+            {result.data.target_agent_name} replied
+          </div>
+          <div style={{
+            fontSize: 13,
+            color: COLORS.textPrimary,
+            lineHeight: 1.55,
+            whiteSpace: 'pre-wrap',
+          }}>
+            {result.data.response}
+          </div>
+        </div>
+      )}
+
+      <details>
+        <summary style={{
+          cursor: 'pointer',
+          userSelect: 'none',
+          fontSize: 11,
+          color: COLORS.textDim,
+        }}>
+          Show payload
+        </summary>
+        <pre style={{
+          marginTop: 6,
+          padding: 8,
+          backgroundColor: COLORS.bgBase,
+          border: `1px solid ${COLORS.borderSoft}`,
+          borderRadius: 6,
+          fontSize: 11,
+          color: COLORS.textMuted,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          fontFamily: 'ui-monospace, monospace',
+        }}>{JSON.stringify(payload, null, 2)}</pre>
+      </details>
     </div>
   )
 }
