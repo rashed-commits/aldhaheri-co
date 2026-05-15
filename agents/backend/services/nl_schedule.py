@@ -9,6 +9,7 @@ import logging
 from apscheduler.triggers.cron import CronTrigger
 
 from backend.services.anthropic_client import MODEL_HAIKU, async_client
+from backend.services.json_utils import parse_model_json
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,9 @@ Examples:
 - "1st of every month"    -> "0 0 1 * *"
 - "every 15 minutes"      -> "*/15 * * * *"
 
-Reply with ONLY a JSON object (no markdown, no prose, no code fences):
+Reply with raw JSON only. Do NOT wrap in ```json``` code fences. Do not add any
+prose. The very first character of your reply must be `{` and the very last `}`.
+
 {"cron_expr": "<5-field cron string>", "explanation": "<one short plain-English summary>"}
 
 If the input is ambiguous or unparseable, return:
@@ -44,7 +47,10 @@ async def parse_nl_schedule(nl: str) -> dict:
             messages=[{"role": "user", "content": nl}],
         )
         raw = response.content[0].text.strip()
-        parsed = json.loads(raw)
+        parsed = parse_model_json(raw)
+        if parsed is None:
+            logger.warning("NL schedule returned unparseable JSON; raw=%s", raw[:200])
+            return {"cron_expr": None, "explanation": "Could not parse the schedule."}
     except Exception as exc:  # noqa: BLE001
         logger.warning("NL schedule parse failed: %s", exc)
         return {"cron_expr": None, "explanation": "Could not parse the schedule."}

@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.models import AgentSkill
 from backend.services.anthropic_client import MODEL_HAIKU, async_client
+from backend.services.json_utils import parse_model_json
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,9 @@ You will be given:
 
 Pick the single best skill, or null if none clearly fit.
 
-Reply with ONLY a JSON object (no markdown, no prose, no code fences):
+Reply with raw JSON only. Do NOT wrap in ```json``` code fences. Do not add any
+prose. The very first character of your reply must be `{` and the very last `}`.
+
 {"skill_id": <int or null>, "reason": "<one short sentence>"}
 """
 
@@ -69,7 +72,10 @@ async def match_skill(
             messages=[{"role": "user", "content": json.dumps(payload)}],
         )
         text = response.content[0].text.strip()
-        parsed = json.loads(text)
+        parsed = parse_model_json(text)
+        if parsed is None:
+            logger.warning("Skill matcher returned unparseable JSON; raw=%s", text[:200])
+            return None
         skill_id = parsed.get("skill_id")
         if skill_id is None:
             return None

@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.db import async_session
 from backend.models import Agent, AgentMemory, AgentSkill, Proposal, Task
 from backend.services.anthropic_client import MODEL_HAIKU, async_client
+from backend.services.json_utils import parse_model_json
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,10 @@ You review one exchange (user message + assistant response) and produce:
 The user gates every proposal — be conservative. Better to propose nothing
 than to propose noisy or repetitive memory.
 
-Reply with ONLY a JSON object (no markdown, no prose, no code fences):
+Reply with raw JSON only. Do NOT wrap in ```json``` code fences. Do not add any
+prose before or after. The very first character of your reply must be `{` and
+the very last must be `}`.
+
 {
   "task_type": "<snake_case>",
   "memory_proposal": null | {"proposed_md": "<full new MEMORY.md>", "rationale": "<one sentence>"},
@@ -123,12 +127,9 @@ async def queue_reflection(
                 messages=[{"role": "user", "content": json.dumps(payload)}],
             )
             raw = response.content[0].text.strip()
-            try:
-                parsed = json.loads(raw)
-            except json.JSONDecodeError as exc:
-                logger.warning(
-                    "Reflection returned unparseable JSON: %s; raw=%s", exc, raw[:200]
-                )
+            parsed = parse_model_json(raw)
+            if parsed is None:
+                logger.warning("Reflection returned unparseable JSON; raw=%s", raw[:200])
                 return
 
             task_type = (parsed.get("task_type") or "unspecified").strip().lower()
