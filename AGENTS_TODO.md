@@ -43,11 +43,15 @@ Personal AI agent office — a manager agent that dynamically spawns, manages, a
 - [x] Wire `agents.router` and `manager.router` into `main.py`
 
 ## Phase 4 — Chat endpoint with full prompt assembly
-- [ ] `routers/chat.py` with SSE streaming via `client.messages.stream()`
-- [ ] Session creation + transcript append per turn
-- [ ] FTS5 index update on each turn
-- [ ] Action block parser (reusable from finance pattern: `<action>{...}</action>`)
-- [ ] Action executor: spawn_agent, update_memory, propose_skill, create_task, schedule_cron
+- [x] `routers/chat.py` with SSE streaming via `async_client.messages.stream()`
+- [x] `services/sessions.py` — create/append/close + FTS5 helper
+- [x] Session creation if no session_id passed; continuation if provided
+- [x] FTS5 mirror append per user + assistant turn
+- [x] Action block parser (`<action>...</action>` JSON, mirrors finance pattern)
+- [x] Agent status transitions: idle → thinking → working → done (or error)
+- [x] Token totals accumulated on the session row
+- [x] Reflection kicked off async via `asyncio.create_task` (stub in `services/reflection.py`)
+- [~] Action executor: spawn_agent / create_task / schedule_cron — frontend-driven; execute endpoints land alongside crons (Phase 6) and via `POST /api/agents` (existing). Memory/skill proposals come from reflection (Phase 5).
 
 ## Phase 5 — Self-improving loop
 - [ ] `services/reflection.py` — post-response Haiku call → memory & skill proposals
