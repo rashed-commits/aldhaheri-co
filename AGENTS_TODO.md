@@ -64,11 +64,12 @@ Personal AI agent office — a manager agent that dynamically spawns, manages, a
 - [x] `routers/user_profile.py` — get + update singleton USER.md
 
 ## Phase 6 — Cron engine
-- [ ] `services/scheduler.py` — APScheduler init in lifespan, restore jobs from DB on boot
-- [ ] `services/cron_executor.py` — runs an agent in a fresh session, writes `cron_runs` row, optional Telegram delivery
-- [ ] `routers/crons.py` — CRUD, enable/disable, manual trigger, list runs per job
-- [ ] Natural-language schedule parser (Haiku → cron string, validated)
-- [ ] Reuse `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` for delivery
+- [x] `services/scheduler.py` — AsyncIOScheduler init, register/unregister, restore-from-DB on boot
+- [x] `services/cron_executor.py` — fresh isolated session per fire, FTS5 ingest, optional Telegram delivery, updates CronRun + CronJob.last_run_at
+- [x] `services/nl_schedule.py` — Haiku NL → cron string, validated by `CronTrigger.from_crontab`
+- [x] `services/telegram.py` — minimal sendMessage wrapper (reuses TELEGRAM_BOT_TOKEN/CHAT_ID)
+- [x] `routers/crons.py` — two-step create (parse + confirm), CRUD, enable/disable, run-now, run history
+- [x] Wire `start_scheduler()` + `shutdown_scheduler()` into the lifespan
 
 ## Phase 7 — Session search
 - [ ] `routers/sessions.py` — list, get full transcript, search via FTS5

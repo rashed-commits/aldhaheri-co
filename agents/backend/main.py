@@ -12,12 +12,14 @@ from backend.routers import (
     agents,
     auth,
     chat,
+    crons,
     manager,
     memory,
     proposals,
     skills,
     user_profile,
 )
+from backend.services.scheduler import shutdown_scheduler, start_scheduler
 
 load_dotenv()
 
@@ -33,9 +35,12 @@ async def lifespan(app: FastAPI):
     async with async_session() as session:
         await run_migrations_and_seeds(session)
 
-    logger.info("agents-backend: schema and seeds ready")
+    await start_scheduler()
+    logger.info("agents-backend: schema, seeds, scheduler ready")
 
     yield
+
+    shutdown_scheduler()
 
 
 app = FastAPI(title="aldhaheri-agents", version="0.1.0", lifespan=lifespan)
@@ -62,6 +67,7 @@ app.include_router(memory.router)
 app.include_router(skills.router)
 app.include_router(proposals.router)
 app.include_router(user_profile.router)
+app.include_router(crons.router)
 
 
 @app.get("/health")
