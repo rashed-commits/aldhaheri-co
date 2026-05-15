@@ -13,6 +13,7 @@ export default function AppNav({ pendingProposalsCount = 0 }) {
       badge: pendingProposalsCount > 0 ? pendingProposalsCount : null,
     },
     { name: 'Crons', to: '/crons' },
+    { name: 'Activity', to: '/activity' },
     { name: 'Settings', to: '/settings' },
   ]
 
